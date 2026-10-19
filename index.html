@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Popis">
+<title>Popis inventure</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#111418;--card:#1b2027;--card2:#222831;--line:#2d3540;--text:#eef1f4;--muted:#9aa4b0;--accent:#2f8cff;--ok:#2fbf71;--warn:#f0b429;--bad:#ef5a5a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+.hidden{display:none!important}
+header{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line);background:var(--card)}
+header .who{flex:1;min-width:0;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;text-align:left;padding:6px 0}
+header .who b{color:var(--text)}
+.sync{font-size:13px;padding:5px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.sync.ok{color:var(--ok)}.sync.pend{color:var(--warn)}.sync.err{color:var(--bad)}
+main{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.screen.active{display:flex}
+nav{display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:var(--card)}
+nav button{flex:1;padding:14px 4px;background:none;border:0;color:var(--muted);font-size:15px;font-weight:600}
+nav button.active{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}
+button{font:inherit;cursor:pointer;color:inherit}
+.btn{min-height:56px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:17px;font-weight:600}
+.btn:active{filter:brightness(1.2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#04210f}
+.btn.danger{background:transparent;border-color:var(--bad);color:var(--bad)}
+.btn.small{min-height:42px;font-size:15px;padding:0 12px}
+.btn.wide{width:100%}
+.btn[disabled]{opacity:.5}
+input,select,textarea{font:inherit;font-size:18px;width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:#0b0e11;color:var(--text);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{min-height:64px;resize:vertical}
+label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+.pad{padding:16px}
+.muted{color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1;min-width:0}
+h2{font-size:20px;margin:4px 0 8px}
+/* login */
+#login .wrap{max-width:420px;margin:auto;width:100%;padding:24px 20px}
+#login h1{font-size:26px;margin:0 0 4px}
+/* scan */
+#readerWrap{position:relative;background:#000;flex:none}
+#reader{width:100%;max-height:48vh;overflow:hidden}
+#reader video{display:block}
+#camMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--muted);font-size:15px;pointer-events:none}
+#camMsg:empty{display:none}
+#pausedHint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(0,0,0,.75);border:1px solid var(--line);color:#fff;padding:8px 14px;border-radius:99px;font-size:14px;white-space:nowrap}
+#torchBtn{position:absolute;right:10px;top:10px;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.55);color:#fff;font-size:20px}
+#torchBtn.on{background:var(--warn);color:#000}
+.panel{padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.locbar{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 6px 6px 12px}
+.locbar .lbl{font-size:13px;color:var(--muted)}
+.locbar b{flex:1;font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coderow{display:flex;gap:8px}
+.coderow input{font-size:22px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.coderow .btn{flex:none;min-width:104px}
+#preview{font-size:14px;min-height:20px}
+#preview .known{color:var(--ok)}#preview .new{color:var(--warn)}
+.last{display:flex;flex-direction:column;gap:6px}
+.last .it{display:flex;justify-content:space-between;gap:8px;background:var(--card);border-radius:10px;padding:8px 12px;font-size:14px}
+.last .it span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* item */
+.codebig{font-size:26px;font-weight:700;word-break:break-all}
+.badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.badge.known{background:rgba(47,191,113,.15);color:var(--ok)}
+.badge.new{background:rgba(240,180,41,.15);color:var(--warn)}
+.badge.ai{background:rgba(47,140,255,.15);color:var(--accent)}
+.qtyrow{display:flex;gap:8px}
+#itQty{font-size:34px;font-weight:700;text-align:center;padding:10px}
+.qtybtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.qtybtns .btn{min-height:50px;padding:0}
+.actions{display:flex;gap:10px;margin-top:18px}
+.actions .btn{flex:1}
+/* list + overview */
+.toolbar{position:sticky;top:0;z-index:2;background:var(--bg);padding:12px 16px 8px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+.summary{font-size:14px;color:var(--muted)}
+.items{padding:8px 16px 24px;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.card .r1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.card .r1 b{word-break:break-all}
+.card .qty{font-size:18px;font-weight:700;white-space:nowrap}
+.card .r2{font-size:14px;color:var(--text);opacity:.85;margin-top:2px}
+.card .r3{font-size:12px;color:var(--muted);margin-top:4px}
+.card.warn{border-color:var(--warn)}
+.diff.plus{color:var(--ok)}.diff.minus{color:var(--bad)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.dot.ok{background:var(--ok)}.dot.pend{background:var(--warn)}
+.tabs{display:flex;gap:6px}
+.tabs button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:600}
+.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.filters select,.filters input{font-size:15px;padding:10px}
+.empty{text-align:center;color:var(--muted);padding:40px 20px}
+/* modal, toast, busy */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.modal .box{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));max-height:90dvh;overflow:auto}
+.modal h3{margin:0 0 10px;font-size:19px}
+.modal .mbody p{margin:6px 0}
+.mbtns{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+#toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);background:#2a313b;color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;z-index:60;max-width:92vw;box-shadow:0 6px 24px rgba(0,0,0,.4);transition:opacity .2s;opacity:0;pointer-events:none}
+#toast.show{opacity:1}
+#toast.ok{background:#14532d}#toast.bad{background:#7f1d1d}
+#busy{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:70;color:#fff;font-size:17px}
+.spin{width:42px;height:42px;border:4px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header id="hdr" class="hidden">
+  <button class="who" id="whoBtn"></button>
+  <span class="sync" id="syncBadge">…</span>
+</header>
+
+<main>
+  <!-- PRIJAVA -->
+  <section class="screen" id="login">
+    <div class="wrap">
+      <h1>Popis inventure</h1>
+      <div class="muted">Vpišite svoje ime, PIN ekipe in ime popisa.</div>
+      <label for="lgName">Vaše ime</label>
+      <input id="lgName" autocomplete="name" placeholder="npr. Janez">
+      <label for="lgPin">PIN ekipe</label>
+      <input id="lgPin" type="password" inputmode="numeric" autocomplete="off">
+      <label for="lgPopis">Popis</label>
+      <input id="lgPopis" list="popisList" autocomplete="off">
+      <datalist id="popisList"></datalist>
+      <button class="btn primary wide" id="lgBtn" style="margin-top:22px">Začni popis</button>
+    </div>
+  </section>
+
+  <!-- SKENIRANJE -->
+  <section class="screen" id="scan">
+    <div id="readerWrap">
+      <div id="reader"></div>
+      <div id="camMsg"></div>
+      <div id="pausedHint" class="hidden">Tapnite sliko za novo skeniranje</div>
+      <button id="torchBtn" title="Svetilka" aria-label="Svetilka">&#128294;</button>
+    </div>
+    <div class="panel">
+      <div class="locbar">
+        <span class="lbl">Lokacija</span>
+        <b id="locTxt">–</b>
+        <button class="btn small" id="locBtn">Zamenjaj</button>
+      </div>
+      <div class="coderow">
+        <input id="codeIn" placeholder="Koda artikla" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+        <button class="btn primary" id="confirmBtn">Potrdi</button>
+      </div>
+      <div id="preview"></div>
+      <button class="btn" id="aiBtn">Preberi z nalepke (AI)</button>
+      <div class="last" id="lastList"></div>
+    </div>
+  </section>
+
+  <!-- ARTIKEL IN KOLIČINA -->
+  <section class="screen" id="item">
+    <div class="pad">
+      <div class="muted" style="font-size:13px">Koda artikla</div>
+      <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
+      <div class="muted" id="itEan" style="font-size:13px"></div>
+      <div class="muted" id="itBook" style="font-size:14px;margin-top:4px"></div>
+
+      <label for="itMfr">Proizvajalec</label>
+      <input id="itMfr" list="mfrList" autocomplete="off">
+      <datalist id="mfrList"></datalist>
+
+      <label for="itDesc">Opis</label>
+      <textarea id="itDesc" rows="2"></textarea>
+
+      <div class="row" style="gap:10px">
+        <div class="grow">
+          <label for="itQty">Količina</label>
+          <input id="itQty" inputmode="decimal" autocomplete="off" enterkeyhint="done">
+        </div>
+        <div style="width:118px">
+          <label for="itUnit">Enota</label>
+          <select id="itUnit">
+            <option>kos</option><option>m</option><option>kolut</option><option>paket</option><option>kpl</option><option>kg</option><option>l</option>
+          </select>
+        </div>
+      </div>
+      <div class="qtybtns">
+        <button class="btn" data-add="-1">−1</button>
+        <button class="btn" data-add="1">+1</button>
+        <button class="btn" data-add="5">+5</button>
+        <button class="btn" data-add="10">+10</button>
+      </div>
+      <div class="muted" id="itLoc" style="font-size:13px;margin-top:12px"></div>
+      <div class="actions">
+        <button class="btn" id="itCancel">Prekliči</button>
+        <button class="btn ok" id="itSave">Shrani</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MOJ SEZNAM -->
+  <section class="screen" id="list">
+    <div class="toolbar">
+      <div class="row">
+        <input id="listSearch" class="grow" placeholder="Išči šifro, opis, lokacijo" style="font-size:16px;padding:10px 12px">
+        <button class="btn small" id="listExport">Izvozi</button>
+      </div>
+      <div class="summary" id="listSummary"></div>
+    </div>
+    <div class="items" id="listItems"></div>
+  </section>
+
+  <!-- PREGLED -->
+  <section class="screen" id="overview">
+    <div class="toolbar">
+      <div class="row">
+        <button class="btn small primary grow" id="ovRefresh">Osveži</button>
+        <button class="btn small" id="ovExport">Izvozi vse</button>
+        <button class="btn small" id="ovImport">Uvozi šifrant</button>
+      </div>
+      <div class="tabs">
+        <button data-tab="art" class="active">Po artiklih</button>
+        <button data-tab="vn">Vnosi</button>
+      </div>
+      <div class="filters">
+        <select id="ovCounter"><option value="">Vsi popisovalci</option></select>
+        <select id="ovLoc"><option value="">Vse lokacije</option></select>
+        <input id="ovSearch" placeholder="Išči" style="grid-column:1/3">
+      </div>
+      <div class="summary" id="ovSummary">Tapnite »Osveži« za prikaz vseh popisanih artiklov.</div>
+    </div>
+    <div class="items" id="ovItems"></div>
+    <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.txt" class="hidden">
+  </section>
+</main>
+
+<nav id="nav" class="hidden">
+  <button data-go="scan" class="active">Skeniraj</button>
+  <button data-go="list">Moj seznam</button>
+  <button data-go="overview">Pregled</button>
+</nav>
+
+<div id="toast"></div>
+<div id="busy" class="hidden"><div class="spin"></div><div id="busyTxt"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+'use strict';
+/* ================= NASTAVITVE ================= */
+const CFG = {
+  SUPABASE_URL: 'https://dsglxcggpkbwaouwnfzk.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_CtR-PKeCOrLiJ_-nVF8iEw_V5vXgo5C',
+  AI_FUNCTION: 'read-label',
+  SYNC_MS: 15000
+};
+const DEFAULT_MFRS = ['Schneider Electric','Siemens','ABB','Rittal','ifm','SICK','Legrand','Hager','Eaton','Phoenix Contact','Weidmüller','WAGO','Finder','Omron','Gewiss','OBO Bettermann'];
+
+/* ================= POMOŽNE ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nowIso = () => new Date().toISOString();
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() :
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&3|8)).toString(16); }));
+const parseNum = v => { if (v === null || v === undefined) return null; if (typeof v === 'number') return isFinite(v) ? v : null;
+  let s = String(v).trim().replace(/[\s ']/g, ''); if (!s) return null;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');          // 1.234,5 → 1234.5
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');          // 1.234 → 1234
+  const n = Number(s); return isFinite(n) ? n : null; };
+const round = n => Math.round(n * 1000) / 1000;
+const fmt = n => (n === null || n === undefined || n === '') ? '' : Number(n).toLocaleString('sl-SI', {maximumFractionDigits: 3});
+const fmtTime = iso => { try { const d = new Date(iso); return d.toLocaleString('sl-SI', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
+const isEan = s => /^\d{8}$|^\d{12,14}$/.test(s);
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+
+let toastT;
+function toast(msg, type = '') {
+  const t = $('#toast'); t.textContent = msg; t.className = 'show ' + type;
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = type, type === 'bad' ? 4500 : 2200);
+}
+function busy(on, txt = '') { $('#busy').classList.toggle('hidden', !on); $('#busyTxt').textContent = txt; }
+function vib(ms = 60) { try { navigator.vibrate && navigator.vibrate(ms); } catch {} }
+let actx;
+function unlockAudio() {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch {}
+}
+document.addEventListener('touchend', unlockAudio, { passive: true });
+document.addEventListener('click', unlockAudio);
+function beep() {
+  try {
+    unlockAudio(); if (!actx) return;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = 1800; g.gain.value = 0.08; o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + 0.08);
+  } catch {}
+}
+
+function modal({ title, body = '', buttons = [{ label: 'V redu', value: true, cls: 'primary' }] }) {
+  return new Promise(res => {
+    const ov = document.createElement('div'); ov.className = 'modal';
+    ov.innerHTML = `<div class="box"><h3>${esc(title)}</h3><div class="mbody">${body}</div><div class="mbtns"></div></div>`;
+    const bw = ov.querySelector('.mbtns');
+    const finish = b => { const vals = {}; ov.querySelectorAll('[name]').forEach(i => vals[i.name] = i.value); ov.remove(); res({ value: b.value, vals }); };
+    buttons.forEach(b => { const el = document.createElement('button'); el.className = 'btn ' + (b.cls || ''); el.textContent = b.label; el.onclick = () => finish(b); bw.appendChild(el); });
+    ov.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); finish(buttons[0]); } });
+    ov.addEventListener('click', e => { if (e.target === ov) finish(buttons.find(b => b.value === null) || { value: null }); });
+    document.body.appendChild(ov);
+    const f = ov.querySelector('input,textarea,select'); if (f) setTimeout(() => { f.focus(); f.select && f.select(); }, 60);
+  });
+}
+
+/* ================= LOKALNA BAZA (IndexedDB) ================= */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('popis-inventure', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        d.createObjectStore('entries', { keyPath: 'id' });
+        const a = d.createObjectStore('articles', { keyPath: 'code' }); a.createIndex('ean', 'ean', { unique: false });
+        d.createObjectStore('outbox_art', { keyPath: 'code' });
+        d.createObjectStore('kv');
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  req(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, mode); const r = fn(t.objectStore(store)); let out;
+      if (r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  get(s, k) { return this.req(s, 'readonly', st => st.get(k)); },
+  all(s) { return this.req(s, 'readonly', st => st.getAll()); },
+  put(s, v) { return this.req(s, 'readwrite', st => st.put(v)); },
+  del(s, k) { return this.req(s, 'readwrite', st => st.delete(k)); },
+  count(s) { return this.req(s, 'readonly', st => st.count()); },
+  byEan(ean) { return this.req('articles', 'readonly', st => st.index('ean').get(ean)); },
+  putMany(s, vals) {
+    return new Promise((res, rej) => { const t = this.db.transaction(s, 'readwrite'); const st = t.objectStore(s); vals.forEach(v => st.put(v)); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+  },
+  kvGet(k) { return this.req('kv', 'readonly', st => st.get(k)); },
+  kvSet(k, v) { return this.req('kv', 'readwrite', st => st.put(v, k)); }
+};
+
+/* ================= STREŽNIK (Supabase) ================= */
+async function rpc(fn, body) {
+  const r = await fetch(`${CFG.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST', headers: { apikey: CFG.SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const txt = await r.text();
+  if (!r.ok) {
+    let m = txt; try { m = JSON.parse(txt).message || txt; } catch {}
+    if (fn !== 'check_pin' && /Napačen PIN/.test(m) && curScreen !== 'login') pinRejected();
+    throw new Error(m || ('HTTP ' + r.status));
+  }
+  return txt ? JSON.parse(txt) : null;
+}
+// PIN je bil na strežniku spremenjen: nazaj na prijavo (vnosi ostanejo na telefonu)
+async function pinRejected() {
+  S.pin = ''; await DB.kvSet('session', null); await stopScanner(); await showLogin();
+  toast('PIN ekipe je bil spremenjen. Prijavite se z novim PIN-om – vaši vnosi so shranjeni.', 'bad');
+}
+
+/* ================= STANJE ================= */
+const S = { name: '', pin: '', popis: '', location: '', method: 'rocno', aiData: null };
+let cur = null; // trenutni artikel na zaslonu Artikel
+
+/* ================= ZASLONI ================= */
+let curScreen = '';
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.go === id));
+  curScreen = id;
+  if (id === 'scan') { startScanner(); renderLast(); setTimeout(() => {}, 0); }
+  else if (id !== 'item') stopScanner();
+  if (id === 'list') renderList();
+  if (id === 'overview' && !OV.loaded) loadOverview(true);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.go));
+
+function updateHeader() {
+  $('#whoBtn').innerHTML = `<b>${esc(S.name)}</b> · ${esc(S.popis)}`;
+  $('#locTxt').textContent = S.location || '– izberite –';
+}
+
+/* ================= PRIJAVA ================= */
+async function showLogin() {
+  $('#hdr').classList.add('hidden'); $('#nav').classList.add('hidden');
+  $('#lgName').value = (await DB.kvGet('lastName')) || '';
+  $('#lgPopis').value = (await DB.kvGet('lastPopis')) || ('Inventura ' + new Date().getFullYear());
+  $('#lgPin').value = '';
+  show('login');
+}
+$('#lgPin').addEventListener('change', fillPopisList);
+async function fillPopisList() {
+  const pin = $('#lgPin').value.trim(); if (!pin || !navigator.onLine) return;
+  try { const list = await rpc('list_popisi', { p_pin: pin }); $('#popisList').innerHTML = (list || []).map(p => `<option value="${esc(p.popis)}">`).join(''); } catch {}
+}
+$('#lgBtn').onclick = async () => {
+  const name = $('#lgName').value.trim(), pin = $('#lgPin').value.trim(), popis = $('#lgPopis').value.trim();
+  if (!name || !pin || !popis) return toast('Izpolnite ime, PIN in popis', 'bad');
+  if (navigator.onLine) {
+    busy(true, 'Preverjam PIN …');
+    try { const ok = await rpc('check_pin', { p_pin: pin }); busy(false); if (!ok) return toast('Napačen PIN', 'bad'); }
+    catch (e) { busy(false); return toast(/poskus/.test(e.message) ? e.message : 'Povezava z bazo ni uspela: ' + e.message, 'bad'); }
+  } else {
+    const lp = await DB.kvGet('lastPin');
+    if (lp !== pin) return toast('Brez interneta lahko vstopite le s PIN-om, ki je že bil uporabljen na tem telefonu', 'bad');
+  }
+  Object.assign(S, { name, pin, popis });
+  await DB.kvSet('session', { name, pin, popis });
+  await DB.kvSet('lastName', name); await DB.kvSet('lastPin', pin); await DB.kvSet('lastPopis', popis);
+  startApp();
+};
+$('#lgPin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn').click(); });
+
+function startApp() {
+  $('#hdr').classList.remove('hidden'); $('#nav').classList.remove('hidden');
+  OV.loaded = false; updateHeader(); show('scan'); updateBadge(); sync();
+}
+
+$('#whoBtn').onclick = async () => {
+  const pending = await pendingCount();
+  const r = await modal({
+    title: `${S.name} · ${S.popis}`,
+    body: `<p class="muted">Lokacija: ${esc(S.location || '–')}<br>Neposlanih sprememb: ${pending}</p>`,
+    buttons: [
+      { label: 'Zamenjaj lokacijo', value: 'loc' },
+      { label: 'Sinhroniziraj zdaj', value: 'sync' },
+      { label: 'Zamenjaj popis ali popisovalca', value: 'out' },
+      { label: 'Zapri', value: null }
+    ]
+  });
+  if (r.value === 'loc') askLocation();
+  if (r.value === 'sync') { await sync(true); }
+  if (r.value === 'out') {
+    if (pending > 0) {
+      const c = await modal({ title: 'Neposlani vnosi', body: `<p>Na telefonu je ${pending} sprememb, ki še niso naložene. Ostanejo shranjene in se naložijo, ko bo internet. Nadaljujem?</p>`,
+        buttons: [{ label: 'Nadaljuj', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }] });
+      if (!c.value) return;
+    }
+    await DB.kvSet('session', null); await stopScanner(); showLogin();
+  }
+};
+
+/* ================= LOKACIJA ================= */
+async function setLocation(loc) { S.location = loc; await DB.kvSet('location', loc); updateHeader(); }
+async function askLocation() {
+  const r = await modal({
+    title: 'Lokacija',
+    body: `<p class="muted">Regal, polica ali prostor. Lokacijo lahko tudi skenirate s QR kodo oblike LOK:R1-P3.</p><input name="loc" value="${esc(S.location)}" placeholder="npr. R1-P3" autocapitalize="characters">`,
+    buttons: [{ label: 'Potrdi', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }]
+  });
+  if (!r.value) return false;
+  const loc = (r.vals.loc || '').trim().toUpperCase();
+  if (!loc) { toast('Lokacija je prazna', 'bad'); return false; }
+  await setLocation(loc); toast('Lokacija: ' + loc, 'ok'); return true;
+}
+$('#locBtn').onclick = askLocation;
+
+/* ================= KAMERA / SKENER ================= */
+let scanner = null, scanRunning = false, scanPaused = false, torchOn = false, lastScan = { text: '', t: 0 };
+// Zagon in ustavitev kamere se izvajata eden za drugim (brez prekrivanja)
+let scanOp = Promise.resolve();
+function startScanner() { scanOp = scanOp.then(_startScanner).catch(() => {}); return scanOp; }
+function stopScanner() { scanOp = scanOp.then(_stopScanner).catch(() => {}); return scanOp; }
+function setPausedUI(p) { $('#pausedHint').classList.toggle('hidden', !p); }
+async function _startScanner() {
+  if (curScreen !== 'scan') return;
+  if (scanRunning) { if (scanPaused && !$('#codeIn').value) resumeScanner(); return; }
+  if (!window.Html5Qrcode) { $('#camMsg').textContent = 'Knjižnica za skeniranje se ni naložila. Preverite internet in znova odprite aplikacijo. Kodo lahko vpišete ročno.'; return; }
+  try {
+    if (!scanner) {
+      const F = Html5QrcodeSupportedFormats;
+      scanner = new Html5Qrcode('reader', {
+        verbose: false,
+        formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.CODE_93, F.ITF, F.QR_CODE, F.DATA_MATRIX],
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+      });
+    }
+    $('#camMsg').textContent = '';
+    await scanner.start({ facingMode: 'environment' },
+      { fps: 12, aspectRatio: 1.3333, qrbox: (w, h) => ({ width: Math.max(160, Math.floor(w * 0.85)), height: Math.max(100, Math.floor(h * 0.55)) }) },
+      onScan, () => {});
+    scanRunning = true; scanPaused = false; torchOn = false; $('#torchBtn').classList.remove('on'); setPausedUI(false);
+    let caps = {}; try { caps = scanner.getRunningTrackCapabilities() || {}; } catch {}
+    $('#torchBtn').classList.toggle('hidden', !caps.torch);
+    if (curScreen !== 'scan' && curScreen !== 'item') await _stopScanner();
+  } catch (e) {
+    $('#camMsg').textContent = 'Kamera ni dostopna (' + (e && e.message ? e.message : e) + '). Dovolite kamero v brskalniku ali kodo vpišite ročno.';
+  }
+}
+async function _stopScanner() {
+  const was = scanRunning;
+  scanRunning = false; scanPaused = false; torchOn = false; setPausedUI(false); $('#torchBtn').classList.remove('on');
+  if (scanner && was) { try { await scanner.stop(); } catch {} }
+}
+function pauseScanner() { if (scanRunning && !scanPaused) { try { scanner.pause(true); scanPaused = true; setPausedUI(true); } catch {} } }
+function resumeScanner() { if (scanRunning && scanPaused) { try { scanner.resume(); scanPaused = false; setPausedUI(false); } catch {} } }
+$('#readerWrap').addEventListener('click', e => {
+  if (e.target.id === 'torchBtn') return;
+  if (scanPaused) { $('#codeIn').value = ''; $('#preview').innerHTML = ''; S.aiData = null; resumeScanner(); }
+  else if (!scanRunning) startScanner();
+});
+$('#torchBtn').onclick = async e => {
+  e.stopPropagation(); if (!scanRunning) return;
+  try {
+    const want = !torchOn;
+    await scanner.applyVideoConstraints({ advanced: [{ torch: want }] });
+    let on = want; try { const st = scanner.getRunningTrackSettings(); if (st && 'torch' in st) on = !!st.torch; } catch {}
+    torchOn = on; $('#torchBtn').classList.toggle('on', torchOn);
+    if (want && !on) toast('Svetilka na tej napravi ni podprta');
+  } catch { torchOn = false; $('#torchBtn').classList.remove('on'); toast('Svetilka na tej napravi ni podprta'); }
+};
+function onScan(text) {
+  text = String(text || '').trim(); if (!text || curScreen !== 'scan') return;
+  const t = Date.now(); if (text === lastScan.text && t - lastScan.t < 2500) return; lastScan = { text, t };
+  if (/^LOK:/i.test(text)) { const loc = text.slice(4).trim().toUpperCase(); if (loc) { setLocation(loc); beep(); vib(); toast('Lokacija: ' + loc, 'ok'); } return; }
+  $('#codeIn').value = text; S.method = 'koda'; S.aiData = null;
+  beep(); vib(); pauseScanner(); lookupPreview(text);
+}
+
+/* ================= ISKANJE ARTIKLA ================= */
+async function findArticle(code, alt) {
+  for (const c of [code, alt]) {
+    if (!c) continue;
+    const a = await DB.get('articles', c); if (a) return a;
+    const b = await DB.byEan(c); if (b) return b;
+    const up = String(c).toUpperCase(); if (up !== c) { const u = await DB.get('articles', up); if (u) return u; }
+  }
+  return null;
+}
+let pvT;
+async function lookupPreview(code) {
+  code = (code || '').trim(); if (!code) { $('#preview').innerHTML = ''; return; }
+  const a = await findArticle(code);
+  if ($('#codeIn').value.trim() !== code) return;
+  $('#preview').innerHTML = a
+    ? `<span class="known">Znan artikel:</span> ${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || a.code)}`
+    : `<span class="new">Nov artikel</span> – po potrditvi vpišete proizvajalca in opis`;
+}
+$('#codeIn').addEventListener('input', () => { S.method = 'rocno'; clearTimeout(pvT); pvT = setTimeout(() => lookupPreview($('#codeIn').value), 250); });
+$('#codeIn').addEventListener('focus', () => pauseScanner());
+$('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#confirmBtn').click(); } });
+$('#confirmBtn').onclick = () => openItem($('#codeIn').value, S.aiData);
+
+/* ================= AI BRANJE NALEPKE ================= */
+$('#aiBtn').onclick = async () => {
+  if (!navigator.onLine) return toast('AI branje potrebuje internet', 'bad');
+  const v = document.querySelector('#reader video');
+  if (!v || !v.videoWidth) return toast('Kamera ni pripravljena', 'bad');
+  const sc = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * sc); c.height = Math.round(v.videoHeight * sc);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  const b64 = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+  pauseScanner(); busy(true, 'Berem nalepko …');
+  try {
+    const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/${CFG.AI_FUNCTION}`, {
+      method: 'POST', headers: { apikey: CFG.SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: S.pin, image: b64, mediaType: 'image/jpeg' })
+    });
+    const d = await r.json().catch(() => ({ error: 'Neveljaven odgovor strežnika (' + r.status + ')' }));
+    if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+    busy(false);
+    const code = d.code || d.ean;
+    S.aiData = d; S.method = 'ai';
+    if (!code) {
+      $('#codeIn').value = '';
+      $('#preview').innerHTML = `<span class="new">Kode ni bilo mogoče prebrati.</span> ${esc([d.manufacturer, d.description].filter(Boolean).join(' – '))} Vpišite kodo in potrdite.`;
+      $('#codeIn').focus(); return;
+    }
+    $('#codeIn').value = code;
+    openItem(code, d);
+  } catch (e) { busy(false); toast('AI branje ni uspelo: ' + e.message, 'bad'); }
+};
+
+/* ================= ARTIKEL IN KOLIČINA ================= */
+async function openItem(code, ai) {
+  code = (code || '').trim();
+  if (S.method === 'rocno') code = code.toUpperCase(); // ročno vpisane kode vedno z velikimi črkami
+  if (!code) return toast('Skenirajte ali vpišite kodo', 'bad');
+  if (!S.location) { const ok = await askLocation(); if (!ok) return; }
+  const art = await findArticle(code, ai && ai.ean);
+  const ean = art ? (art.ean || (isEan(code) ? code : (ai && ai.ean) || '')) : (isEan(code) ? code : ((ai && ai.ean) || ''));
+  cur = { code: art ? art.code : (isEan(code) && ai && ai.code ? ai.code : code), ean, art, ai };
+  pauseScanner();
+  $('#itCode').textContent = cur.code;
+  $('#itBadges').innerHTML = (art ? '<span class="badge known">ZNAN</span>' : '<span class="badge new">NOV ARTIKEL</span>') + (ai ? '<span class="badge ai">AI</span>' : '');
+  $('#itEan').textContent = cur.ean && cur.ean !== cur.code ? 'EAN ' + cur.ean : '';
+  $('#itBook').textContent = art && art.book_qty !== null && art.book_qty !== undefined ? `Knjižna zaloga: ${fmt(art.book_qty)} ${art.unit || ''}` : '';
+  $('#itMfr').value = (art && art.manufacturer) || (ai && ai.manufacturer) || '';
+  $('#itDesc').value = (art && art.description) || (ai && ai.description) || '';
+  const unit = (art && art.unit) || (ai && ai.unit) || 'kos';
+  if (![...$('#itUnit').options].some(o => o.value === unit)) $('#itUnit').insertAdjacentHTML('beforeend', `<option>${esc(unit)}</option>`);
+  $('#itUnit').value = unit;
+  $('#itQty').value = '';
+  $('#itLoc').textContent = 'Lokacija: ' + S.location + ' · popisovalec: ' + S.name;
+  await fillMfrList();
+  show('item');
+  setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 80);
+}
+document.querySelectorAll('.qtybtns .btn').forEach(b => b.onclick = () => {
+  const n = (parseNum($('#itQty').value) || 0) + Number(b.dataset.add);
+  $('#itQty').value = String(round(Math.max(0, n))).replace('.', ',');
+});
+$('#itQty').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#itSave').click(); } });
+$('#itCancel').onclick = () => { resetScan(); show('scan'); };
+
+async function fillMfrList() {
+  const recent = (await DB.kvGet('mfrs')) || [];
+  const all = [...new Set([...recent, ...DEFAULT_MFRS])];
+  $('#mfrList').innerHTML = all.map(m => `<option value="${esc(m)}">`).join('');
+}
+async function rememberMfr(m) {
+  const recent = ((await DB.kvGet('mfrs')) || []).filter(x => x !== m); recent.unshift(m); await DB.kvSet('mfrs', recent.slice(0, 20));
+}
+
+let saving = false;
+$('#itSave').onclick = async () => {
+  if (saving || !cur) return;
+  const qty = parseNum($('#itQty').value);
+  if (qty === null || qty < 0) { toast('Vpišite količino', 'bad'); $('#itQty').focus(); return; }
+  saving = true;
+  try {
+    const mfr = $('#itMfr').value.trim(), desc = $('#itDesc').value.trim(), unit = $('#itUnit').value;
+    const mine = (await DB.all('entries')).find(e => !e.deleted && e.popis === S.popis && e.counter === S.name && e.location === S.location && e.code === cur.code);
+    let finalQty = qty;
+    if (mine) {
+      const sum = round(Number(mine.quantity) + qty);
+      const r = await modal({
+        title: 'Artikel je na tej lokaciji že popisan',
+        body: `<p><b>${esc(cur.code)}</b> na lokaciji ${esc(S.location)}: že vpisano <b>${fmt(mine.quantity)} ${esc(mine.unit || '')}</b>.</p><p>Nova količina: <b>${fmt(qty)}</b></p>`,
+        buttons: [{ label: `Prištej (skupaj ${fmt(sum)})`, value: 'add', cls: 'primary' }, { label: `Zamenjaj (${fmt(qty)})`, value: 'replace' }, { label: 'Prekliči', value: null }]
+      });
+      if (!r.value) return;
+      finalQty = r.value === 'add' ? sum : qty;
+      Object.assign(mine, { quantity: finalQty, manufacturer: mfr || null, description: desc || null, unit, ean: cur.ean || mine.ean || null, updated_at: nowIso(), synced: false });
+      await DB.put('entries', mine);
+    } else {
+      const t = nowIso();
+      await DB.put('entries', { id: uuid(), popis: S.popis, counter: S.name, location: S.location, code: cur.code, ean: cur.ean || null,
+        manufacturer: mfr || null, description: desc || null, quantity: qty, unit, method: S.method || 'rocno', deleted: false, created_at: t, updated_at: t, synced: false });
+    }
+    const a = cur.art;
+    if (!a || (mfr && mfr !== a.manufacturer) || (desc && desc !== a.description) || unit !== a.unit || (cur.ean && cur.ean !== a.ean)) {
+      const na = { code: cur.code, ean: cur.ean || (a && a.ean) || null, manufacturer: mfr || (a && a.manufacturer) || null, description: desc || (a && a.description) || null,
+        unit, book_qty: a ? a.book_qty : null, source: a ? a.source : 'popis', updated_at: a ? a.updated_at : null };
+      await DB.put('articles', na);
+      await DB.put('outbox_art', { code: na.code, ean: na.ean, manufacturer: na.manufacturer, description: na.description, unit: na.unit, source: 'popis', created_by: S.name, ts: Date.now() + Math.random() });
+    }
+    if (mfr) await rememberMfr(mfr);
+    toast(`Shranjeno: ${cur.code} × ${fmt(finalQty)} ${unit}`, 'ok'); vib(40);
+    resetScan(); show('scan'); updateBadge(); OV.loaded = false; sync();
+  } catch (e) { toast('Shranjevanje ni uspelo: ' + e.message, 'bad'); }
+  finally { saving = false; }
+};
+function resetScan() {
+  cur = null; $('#codeIn').value = ''; $('#preview').innerHTML = ''; S.method = 'rocno'; S.aiData = null;
+  lastScan = { text: '', t: 0 }; resumeScanner();
+}
+async function renderLast() {
+  const es = (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && e.counter === S.name)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3);
+  $('#lastList').innerHTML = es.length ? '<div class="muted" style="font-size:13px">Zadnji vnosi</div>' + es.map(e =>
+    `<div class="it"><span><b>${esc(e.code)}</b> ${esc(e.description || '')}</span><span>${fmt(e.quantity)} ${esc(e.unit || '')} · ${esc(e.location || '')}</span></div>`).join('') : '';
+}
+
+/* ================= MOJ SEZNAM ================= */
+async function myEntries() {
+  return (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && e.counter === S.name)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+async function renderList() {
+  const q = norm($('#listSearch').value);
+  const all = await myEntries();
+  const es = q ? all.filter(e => norm([e.code, e.ean, e.manufacturer, e.description, e.location].join(' ')).includes(q)) : all;
+  const arts = new Set(all.map(e => e.code)).size;
+  const pend = all.filter(e => !e.synced).length;
+  $('#listSummary').textContent = `${all.length} vnosov · ${arts} različnih artiklov` + (pend ? ` · ${pend} čaka na nalaganje` : ' · vse naloženo');
+  $('#listItems').innerHTML = es.length ? es.slice(0, 500).map(e => `
+    <div class="card" data-id="${esc(e.id)}">
+      <div class="r1"><b>${esc(e.code)}</b><span class="qty">${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>
+      <div class="r2">${esc([e.manufacturer, e.description].filter(Boolean).join(' – ') || '—')}</div>
+      <div class="r3"><span class="dot ${e.synced ? 'ok' : 'pend'}"></span>${esc(e.location || '')} · ${fmtTime(e.created_at)}</div>
+    </div>`).join('') + (es.length > 500 ? `<div class="empty">Prikazanih prvih 500 – uporabite iskanje.</div>` : '')
+    : `<div class="empty">${all.length ? 'Ni zadetkov.' : 'Še ni vnosov. Začnite na zaslonu Skeniraj.'}</div>`;
+}
+$('#listSearch').addEventListener('input', () => renderList());
+$('#listItems').addEventListener('click', async ev => {
+  const el = ev.target.closest('.card'); if (!el) return;
+  const e = await DB.get('entries', el.dataset.id); if (!e) return;
+  const r = await modal({
+    title: e.code,
+    body: `<p class="muted">${esc([e.manufacturer, e.description].filter(Boolean).join(' – '))}</p>
+      <label>Količina (${esc(e.unit || '')})</label><input name="qty" inputmode="decimal" value="${esc(String(e.quantity).replace('.', ','))}">
+      <label>Lokacija</label><input name="loc" value="${esc(e.location || '')}" autocapitalize="characters">`,
+    buttons: [{ label: 'Shrani', value: 'save', cls: 'primary' }, { label: 'Izbriši vnos', value: 'del', cls: 'danger' }, { label: 'Prekliči', value: null }]
+  });
+  if (r.value === 'save') {
+    const q = parseNum(r.vals.qty); if (q === null || q < 0) return toast('Neveljavna količina', 'bad');
+    Object.assign(e, { quantity: q, location: (r.vals.loc || '').trim().toUpperCase() || e.location, updated_at: nowIso(), synced: false });
+    await DB.put('entries', e); toast('Popravljeno', 'ok');
+  } else if (r.value === 'del') {
+    const c = await modal({ title: 'Izbrišem vnos?', body: `<p>${esc(e.code)} – ${fmt(e.quantity)} ${esc(e.unit || '')} na ${esc(e.location || '')}</p>`,
+      buttons: [{ label: 'Izbriši', value: true, cls: 'danger' }, { label: 'Prekliči', value: null }] });
+    if (!c.value) return;
+    Object.assign(e, { deleted: true, updated_at: nowIso(), synced: false }); await DB.put('entries', e); toast('Vnos izbrisan');
+  } else return;
+  OV.loaded = false; renderList(); updateBadge(); sync();
+});
+$('#listExport').onclick = async () => {
+  const es = await myEntries(); if (!es.length) return toast('Seznam je prazen', 'bad');
+  exportXlsx(`Popis ${S.popis} - ${S.name}.xlsx`, [['Vnosi', es.map(entryRow)]]);
+};
+const entryRow = e => ({ 'Popisovalec': e.counter, 'Lokacija': e.location, 'Šifra': e.code, 'EAN': e.ean || '', 'Proizvajalec': e.manufacturer || '',
+  'Opis': e.description || '', 'Količina': Number(e.quantity), 'Enota': e.unit || '', 'Način': e.method || '', 'Čas': fmtTime(e.created_at) });
+
+/* ================= PREGLED ================= */
+const OV = { entries: [], loaded: false, tab: 'art' };
+async function loadOverview(silent) {
+  if (!navigator.onLine) { if (!silent) toast('Pregled potrebuje internet', 'bad'); return; }
+  busy(true, 'Nalagam vse vnose …');
+  try {
+    await sync(); await sync(); // počaka morebitno tekočo sinhronizacijo, nato naloži še zadnje vnose
+    OV.entries = (await rpc('get_entries', { p_pin: S.pin, p_popis: S.popis })) || [];
+    OV.loaded = true;
+    const counters = [...new Set(OV.entries.map(e => e.counter))].sort();
+    const locs = [...new Set(OV.entries.map(e => e.location || ''))].sort();
+    const keep = (sel, opts, first) => { const v = sel.value; sel.innerHTML = `<option value="">${first}</option>` + opts.map(o => `<option value="${esc(o)}">${esc(o || '(brez)')}</option>`).join(''); sel.value = opts.includes(v) ? v : ''; };
+    keep($('#ovCounter'), counters, 'Vsi popisovalci'); keep($('#ovLoc'), locs, 'Vse lokacije');
+    await renderOverview();
+  } catch (e) { toast('Nalaganje ni uspelo: ' + e.message, 'bad'); }
+  finally { busy(false); }
+}
+async function articleMap() { const m = new Map(); (await DB.all('articles')).forEach(a => m.set(a.code, a)); return m; }
+function duplicates(entries) {
+  const g = new Map();
+  entries.forEach(e => { const k = e.code + '|' + (e.location || ''); if (!g.has(k)) g.set(k, new Set()); g.get(k).add(e.counter); });
+  const d = new Set(); g.forEach((s, k) => { if (s.size > 1) d.add(k); }); return d;
+}
+function groupByArticle(entries, arts) {
+  const g = new Map();
+  entries.forEach(e => {
+    if (!g.has(e.code)) { const a = arts.get(e.code); g.set(e.code, { code: e.code, ean: e.ean || (a && a.ean) || '', manufacturer: (a && a.manufacturer) || e.manufacturer || '',
+      description: (a && a.description) || e.description || '', unit: e.unit || (a && a.unit) || '', qty: 0, book: a && a.book_qty !== null && a.book_qty !== undefined ? Number(a.book_qty) : null, locs: new Set(), counters: new Set() }); }
+    const x = g.get(e.code); x.qty = round(x.qty + Number(e.quantity)); x.locs.add(e.location || ''); x.counters.add(e.counter);
+  });
+  return [...g.values()].sort((a, b) => a.code.localeCompare(b.code));
+}
+async function renderOverview() {
+  if (!OV.loaded) return;
+  const cnt = $('#ovCounter').value, loc = $('#ovLoc').value, q = norm($('#ovSearch').value);
+  const arts = await articleMap();
+  const dup = duplicates(OV.entries);
+  let es = OV.entries.filter(e => (!cnt || e.counter === cnt) && (!loc || (e.location || '') === loc));
+  if (q) es = es.filter(e => norm([e.code, e.ean, e.manufacturer, e.description, e.location, e.counter, arts.get(e.code)?.description].join(' ')).includes(q));
+  const allCounters = new Set(OV.entries.map(e => e.counter)).size;
+  const dupCount = dup.size;
+  let html = '';
+  if (OV.tab === 'art') {
+    const rows = groupByArticle(es, arts);
+    $('#ovSummary').innerHTML = `${rows.length} artiklov · ${es.length} vnosov · ${allCounters} popisovalcev` + (dupCount ? ` · <span style="color:var(--warn)">${dupCount} možnih dvojnih štetij</span>` : '');
+    html = rows.slice(0, 400).map(r => {
+      const isDup = [...r.locs].some(l => dup.has(r.code + '|' + l));
+      const diff = r.book !== null ? round(r.qty - r.book) : null;
+      return `<div class="card ${isDup ? 'warn' : ''}">
+        <div class="r1"><b>${esc(r.code)}</b><span class="qty">${fmt(r.qty)} ${esc(r.unit)}</span></div>
+        <div class="r2">${esc([r.manufacturer, r.description].filter(Boolean).join(' – ') || '—')}</div>
+        <div class="r3">${r.book !== null ? `Knjižno ${fmt(r.book)} · razlika <span class="diff ${diff > 0 ? 'plus' : diff < 0 ? 'minus' : ''}">${diff > 0 ? '+' : ''}${fmt(diff)}</span> · ` : ''}${esc([...r.locs].join(', '))} · ${esc([...r.counters].join(', '))}${isDup ? ' · <span style="color:var(--warn)">dvojno štetje?</span>' : ''}</div>
+      </div>`; }).join('');
+    if (rows.length > 400) html += `<div class="empty">Prikazanih prvih 400 – uporabite iskanje ali izvoz.</div>`;
+  } else {
+    $('#ovSummary').textContent = `${es.length} vnosov`;
+    html = es.slice(0, 400).map(e => {
+      const isDup = dup.has(e.code + '|' + (e.location || ''));
+      return `<div class="card ${isDup ? 'warn' : ''}">
+        <div class="r1"><b>${esc(e.code)}</b><span class="qty">${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>
+        <div class="r2">${esc([e.manufacturer, e.description].filter(Boolean).join(' – ') || '—')}</div>
+        <div class="r3">${esc(e.counter)} · ${esc(e.location || '')} · ${fmtTime(e.created_at)}${isDup ? ' · <span style="color:var(--warn)">dvojno štetje?</span>' : ''}</div>
+      </div>`; }).join('');
+    if (es.length > 400) html += `<div class="empty">Prikazanih prvih 400 – uporabite iskanje ali izvoz.</div>`;
+  }
+  $('#ovItems').innerHTML = html || `<div class="empty">${OV.entries.length ? 'Ni zadetkov.' : 'V tem popisu še ni vnosov.'}</div>`;
+}
+$('#ovRefresh').onclick = () => loadOverview(false);
+['#ovCounter', '#ovLoc'].forEach(s => $(s).addEventListener('change', renderOverview));
+let ovT; $('#ovSearch').addEventListener('input', () => { clearTimeout(ovT); ovT = setTimeout(renderOverview, 200); });
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  OV.tab = b.dataset.tab; document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b)); renderOverview();
+});
+$('#ovExport').onclick = async () => {
+  if (!OV.loaded) await loadOverview(false);
+  if (!OV.loaded) return;
+  const arts = await articleMap();
+  const rows = groupByArticle(OV.entries, arts);
+  const counted = new Set(rows.map(r => r.code));
+  const dup = duplicates(OV.entries);
+  const byArt = rows.map(r => ({ 'Šifra': r.code, 'EAN': r.ean, 'Proizvajalec': r.manufacturer, 'Opis': r.description, 'Enota': r.unit, 'Popisano': r.qty,
+    'Knjižna zaloga': r.book === null ? '' : r.book, 'Razlika': r.book === null ? '' : round(r.qty - r.book), 'Lokacije': [...r.locs].join(', '), 'Popisovalci': [...r.counters].join(', ') }));
+  const notCounted = [...arts.values()].filter(a => !counted.has(a.code) && a.book_qty !== null && a.book_qty !== undefined && Number(a.book_qty) !== 0)
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map(a => ({ 'Šifra': a.code, 'EAN': a.ean || '', 'Proizvajalec': a.manufacturer || '', 'Opis': a.description || '', 'Enota': a.unit || '', 'Knjižna zaloga': Number(a.book_qty) }));
+  const dupRows = OV.entries.filter(e => dup.has(e.code + '|' + (e.location || ''))).sort((a, b) => (a.code + a.location).localeCompare(b.code + b.location)).map(entryRow);
+  const sheets = [['Po artiklih', byArt], ['Vnosi', OV.entries.map(entryRow)]];
+  if (notCounted.length) sheets.push(['Nepopisano', notCounted]);
+  if (dupRows.length) sheets.push(['Dvojno štetje', dupRows]);
+  exportXlsx(`Popis ${S.popis} - skupno.xlsx`, sheets);
+};
+
+/* ================= UVOZ ŠIFRANTA ================= */
+$('#ovImport').onclick = () => { if (!navigator.onLine) return toast('Uvoz potrebuje internet', 'bad'); $('#importFile').value = ''; $('#importFile').click(); };
+const COLS = {
+  code: ['sifra', 'sifra artikla', 'koda', 'koda artikla', 'code', 'artikel', 'kataloska stevilka', 'kat st', 'id artikla', 'art st', 'st artikla'],
+  ean: ['ean', 'ean koda', 'crtna koda', 'barcode', 'gtin'],
+  manufacturer: ['proizvajalec', 'dobavitelj', 'manufacturer', 'znamka', 'brand', 'blagovna znamka'],
+  description: ['opis', 'naziv', 'naziv artikla', 'description', 'ime', 'name', 'ime artikla'],
+  unit: ['enota', 'em', 'enota mere', 'unit', 'me'],
+  book_qty: ['zaloga', 'knjizna zaloga', 'kolicina', 'stock', 'stanje', 'kol']
+};
+function detectCols(headers) {
+  const map = {}; const nh = headers.map(h => [h, norm(h)]);
+  for (const [key, names] of Object.entries(COLS)) {
+    let hit = nh.find(([, n]) => names.includes(n)); if (!hit) hit = nh.find(([, n]) => names.some(x => n.startsWith(x)));
+    if (hit && !Object.values(map).includes(hit[0])) map[key] = hit[0];
+  }
+  return map;
+}
+const cellStr = v => (v === null || v === undefined) ? '' : (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : String(v)) : String(v).trim());
+const cellEan = v => typeof v === 'number' ? v.toFixed(0) : String(v ?? '').replace(/\D/g, '');
+async function readTable(file) {
+  const buf = await file.arrayBuffer();
+  if (/\.(csv|txt)$/i.test(file.name)) {
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (text.includes('�')) { try { text = new TextDecoder('windows-1250').decode(buf); } catch {} }
+    const first = text.split(/\r?\n/)[0] || '';
+    const fs = [';', '\t', ','].sort((a, b) => first.split(b).length - first.split(a).length)[0];
+    const wb = XLSX.read(text, { type: 'string', FS: fs, raw: true });
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: true });
+  }
+  const wb = XLSX.read(buf, { type: 'array' });
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: true });
+}
+$('#importFile').addEventListener('change', async ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  if (!window.XLSX) return toast('Knjižnica za Excel se ni naložila', 'bad');
+  busy(true, 'Berem datoteko …');
+  let rows;
+  try { rows = await readTable(file); } catch (e) { busy(false); return toast('Datoteke ni mogoče prebrati: ' + e.message, 'bad'); }
+  busy(false);
+  if (!rows.length) return toast('Datoteka je prazna', 'bad');
+  const headers = Object.keys(rows[0]); const map = detectCols(headers);
+  if (!map.code) return modal({ title: 'Ni stolpca s šifro', body: `<p>Stolpec s šifro artikla mora imeti naslov »Šifra« ali »Koda«.</p><p class="muted">Najdeni stolpci: ${esc(headers.join(', '))}</p>` });
+  const arts = rows.map(r => ({
+    code: cellStr(r[map.code]), ean: map.ean ? cellEan(r[map.ean]) || null : null,
+    manufacturer: map.manufacturer ? cellStr(r[map.manufacturer]) || null : null, description: map.description ? cellStr(r[map.description]) || null : null,
+    unit: map.unit ? cellStr(r[map.unit]) || null : null, book_qty: map.book_qty ? parseNum(r[map.book_qty]) : null, source: 'uvoz', created_by: S.name
+  })).filter(a => a.code);
+  const lbl = { code: 'šifra', ean: 'EAN', manufacturer: 'proizvajalec', description: 'opis', unit: 'enota', book_qty: 'knjižna zaloga' };
+  const c = await modal({
+    title: `Uvoz ${arts.length} artiklov`,
+    body: `<p>Prepoznani stolpci:</p><p>${Object.entries(lbl).map(([k, l]) => `${l}: <b>${esc(map[k] || '— ni —')}</b>`).join('<br>')}</p><p class="muted">Obstoječi artikli se posodobijo, novi dodajo. Artikli, vpisani med popisom, ostanejo.</p>`,
+    buttons: [{ label: 'Uvozi', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }]
+  });
+  if (!c.value) return;
+  try {
+    for (let i = 0; i < arts.length; i += 1000) {
+      busy(true, `Nalagam ${Math.min(i + 1000, arts.length)} / ${arts.length} …`);
+      await rpc('upsert_articles', { p_pin: S.pin, p_articles: arts.slice(i, i + 1000) });
+    }
+    busy(true, 'Prenašam šifrant na telefon …');
+    await pullArticles();
+    busy(false); toast(`Uvoženih ${arts.length} artiklov`, 'ok'); OV.loaded = false; loadOverview(true);
+  } catch (e) { busy(false); toast('Uvoz ni uspel: ' + e.message, 'bad'); }
+});
+
+/* ================= IZVOZ ================= */
+function exportXlsx(filename, sheets) {
+  if (!window.XLSX) return toast('Knjižnica za Excel se ni naložila', 'bad');
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(([name, rows]) => {
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ '': 'Ni podatkov' }]);
+    const keys = Object.keys(rows[0] || {}); ws['!cols'] = keys.map(k => ({ wch: Math.min(50, Math.max(k.length + 2, ...rows.slice(0, 200).map(r => String(r[k] ?? '').length + 1))) }));
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+  });
+  const safe = filename.replace(/[\\/:*?"<>|]/g, '-');
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const download = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = safe; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); };
+  try {
+    const file = new File([blob], safe, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: safe }).catch(e => { if (e && e.name !== 'AbortError') download(); });
+      return;
+    }
+  } catch {}
+  download();
+}
+
+/* ================= SINHRONIZACIJA ================= */
+let syncing = false, lastSyncErr = '';
+async function pendingCount() {
+  const es = await DB.all('entries'); return es.filter(e => !e.synced).length + (await DB.count('outbox_art'));
+}
+async function updateBadge() {
+  const n = await pendingCount(); const b = $('#syncBadge');
+  if (!navigator.onLine) { b.className = 'sync ' + (n ? 'pend' : ''); b.textContent = n ? `Brez povezave · ${n}` : 'Brez povezave'; }
+  else if (lastSyncErr) { b.className = 'sync err'; b.textContent = n ? `Napaka · ${n}` : 'Napaka'; b.title = lastSyncErr; }
+  else if (n) { b.className = 'sync pend'; b.textContent = `Čaka ${n}`; }
+  else { b.className = 'sync ok'; b.textContent = 'Naloženo'; }
+}
+$('#syncBadge').onclick = () => { if (lastSyncErr) toast(lastSyncErr, 'bad'); else sync(true); };
+async function pullArticles() {
+  const since = (await DB.kvGet('artSince')) || { ts: null, code: '' };
+  // 2 minuti prekrivanja, da ne zgrešimo sočasnih zapisov
+  let ts = since.ts ? new Date(new Date(since.ts).getTime() - 120000).toISOString() : null, code = since.ts ? '' : '';
+  let last = since;
+  for (let guard = 0; guard < 100; guard++) {
+    const rows = await rpc('get_articles', { p_pin: S.pin, p_since: ts || '-infinity', p_after_code: code }) || [];
+    if (rows.length) {
+      const local = rows.map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, updated_at: r.updated_at }));
+      await DB.putMany('articles', local);
+      const lr = rows[rows.length - 1]; ts = lr.updated_at; code = lr.code; last = { ts: lr.updated_at, code: lr.code };
+    }
+    if (rows.length < 5000) break;
+  }
+  if (last && last.ts) await DB.kvSet('artSince', last);
+}
+let syncPromise = null;
+function sync(manual) {
+  if (syncPromise) return syncPromise.then(() => manual ? sync(true) : undefined);
+  syncPromise = _sync(manual).finally(() => { syncPromise = null; });
+  return syncPromise;
+}
+async function _sync(manual) {
+  if (!S.pin) return;
+  if (!navigator.onLine) { updateBadge(); if (manual) toast('Ni internetne povezave', 'bad'); return; }
+  syncing = true;
+  try {
+    const pend = (await DB.all('entries')).filter(e => !e.synced);
+    for (let i = 0; i < pend.length; i += 200) {
+      const chunk = pend.slice(i, i + 200);
+      await rpc('sync_entries', { p_pin: S.pin, p_entries: chunk.map(({ synced, ...rest }) => rest) });
+      for (const sent of chunk) {
+        const now = await DB.get('entries', sent.id);
+        if (now && now.updated_at === sent.updated_at) { now.synced = true; await DB.put('entries', now); }
+      }
+    }
+    const outbox = await DB.all('outbox_art');
+    for (let i = 0; i < outbox.length; i += 500) {
+      const chunk = outbox.slice(i, i + 500);
+      await rpc('upsert_articles', { p_pin: S.pin, p_articles: chunk });
+      for (const a of chunk) { const now = await DB.get('outbox_art', a.code); if (now && now.ts === a.ts) await DB.del('outbox_art', a.code); }
+    }
+    await pullArticles();
+    lastSyncErr = '';
+    if (manual) toast('Vse naloženo', 'ok');
+  } catch (e) {
+    lastSyncErr = 'Nalaganje ni uspelo: ' + e.message;
+    if (manual) toast(lastSyncErr, 'bad');
+  } finally {
+    syncing = false; updateBadge();
+    if (curScreen === 'list') renderList();
+  }
+}
+window.addEventListener('online', () => sync());
+window.addEventListener('offline', updateBadge);
+setInterval(() => sync(), CFG.SYNC_MS);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (curScreen === 'scan' || curScreen === 'item') stopScanner(); }
+  else { if (curScreen === 'scan') startScanner(); sync(); }
+});
+
+/* ================= ZAGON ================= */
+(async function init() {
+  try { await DB.open(); }
+  catch (e) { document.body.innerHTML = '<div class="pad">Lokalna baza ni dostopna (zasebni način brskalnika?). Odprite aplikacijo v običajnem oknu.</div>'; return; }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  S.location = (await DB.kvGet('location')) || '';
+  const sess = await DB.kvGet('session');
+  if (sess && sess.name && sess.pin && sess.popis) { Object.assign(S, sess); startApp(); }
+  else showLogin();
+})();
+</script>
+</body>
+</html>
