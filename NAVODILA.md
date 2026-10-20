@@ -17,7 +17,7 @@ PIN kasneje spremenite z ukazom v SQL Editorju:
 
 V Supabase → **SQL Editor** → **New query** in po vrsti zaženite (**Run**):
 1. `supabase/posodobitev-4.sql` – povezane kode, brisanje popisnega lista, modul za vpisovalca (če je še niste).
-2. `supabase/posodobitev-5.sql` – **PIN vpisovalca**. Pred zagonom v vrstici `set vpis_pin = 'ZAMENJAJ_VPIS'` vpišite PIN vpisovalca (vsaj 8 znakov, drugačen od PIN-a ekipe).
+2. `supabase/posodobitev-5.sql` – **PIN vpisovalca** (samo enkrat!). Pred zagonom v vrstici `set vpis_pin = 'ZAMENJAJ_VPIS'` vpišite PIN vpisovalca (vsaj 8 znakov, drugačen od PIN-a ekipe).
 
 PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'NOVPIN' where id = 1;`
 
@@ -48,6 +48,11 @@ PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'N
 
 ## Navodila za ekipo (1 minuta)
 
+- **📷 Slikaj nalepko**: usmerite kamero na nalepko, da je oznaka artikla v belem okvirju → **Slikaj**. Aplikacija prebere besedilo (šifro, kataloško številko, opis) – črtnih in QR kod ne bere.
+  - En zanesljiv zadetek → takoj se odpre vnos količine.
+  - Več možnosti → pokaže najverjetnejše artikle, tapnite pravega.
+  - Nič prebranega → vpišite šifro ročno. Pomaga: dobra svetloba, nalepka ravno in čez cel okvir.
+  - Prvič se bralnik besedila nalaga nekaj sekund (približno 10 MB), nato je hiter.
 - **Išči**: vpišite šifro ali del opisa (npr. `lc1d18`, `kontaktor 9a`, `unica okvir beli`). Spodaj se sproti pokažejo artikli – tapnite pravega.
 - Vpišite **količino** → **Shrani**. Polje za iskanje je takoj pripravljeno za naslednji artikel.
 - Artikla ni na seznamu: vpišite njegovo kodo → **Potrdi** → izpolnite proizvajalca, opis, enoto, količino → **Shrani**.
@@ -84,6 +89,16 @@ PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'N
 | AI branje: »ANTHROPIC_API_KEY ni nastavljen« | Dodajte skrivnost v Edge Functions → Secrets. |
 | AI branje: napaka 400/402 | Na console.anthropic.com preverite dobroimetje. |
 | Oznaka »Napaka« zgoraj desno | Tapnite jo za opis napake; vnosi ostanejo na telefonu. |
+
+## Začni inventuro znova (samo vpisovalec)
+
+Najprej v Supabase enkrat zaženite `supabase/posodobitev-6.sql` (ne spreminja PIN-ov).
+
+**Pregled → ⟲ Začni inventuro znova** (gumb vidi samo vpisovalec):
+1. Priporočeno: **Najprej izvozi v Excel**, da ostane kopija.
+2. **Nadaljuj z brisanjem** → vpišite **PIN vpisovalca** in besedilo **ZAČNI ZNOVA**.
+
+Izbrišejo se vse popisane količine in statusi pregleda tega popisa – v bazi in na vseh telefonih (ob naslednji sinhronizaciji; popisovalci dobijo obvestilo). **Popisni list in povezane kode ostanejo.** Vnosi, narejeni pred ponovnim začetkom, se tudi s telefonov brez interneta ne morejo več naložiti nazaj.
 
 ## Brisanje popisnega lista
 

@@ -84,6 +84,16 @@ h2{font-size:20px;margin:4px 0 8px}
 .role.active{border-color:var(--accent);background:rgba(47,140,255,.14)}
 .role.vp.active{border-color:var(--ok);background:rgba(47,191,113,.14)}
 .rolebadge{font-size:11px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;margin-left:6px;background:var(--ok);color:#04210f;vertical-align:middle}
+#ocrBtn{width:100%;min-height:60px;font-size:18px}
+#ocrCam{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column}
+#ocrCam video{flex:1;width:100%;object-fit:cover;min-height:0}
+#ocrCam .frame{position:absolute;left:5%;right:5%;top:22%;height:40%;border:3px solid rgba(255,255,255,.85);border-radius:14px;box-shadow:0 0 0 2000px rgba(0,0,0,.35);pointer-events:none}
+#ocrCam .hint{position:absolute;left:0;right:0;top:calc(22% - 44px);text-align:center;color:#fff;font-size:15px;text-shadow:0 1px 3px #000;padding:0 16px}
+#ocrCam .bar{display:flex;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:#000}
+#ocrCam .bar .btn{flex:1;min-height:64px;font-size:19px}
+#ocrCam .bar #ocrClose{flex:0 0 30%}
+#ocrMsg{position:absolute;left:5%;right:5%;top:64%;color:#fff;text-align:center;font-size:15px;text-shadow:0 1px 3px #000}
+#ocrRead{font-size:13px;color:var(--muted);word-break:break-word}
 #rcBanner{display:block;width:100%;text-align:left;background:rgba(240,180,41,.12);border:1px solid var(--warn);color:var(--text);border-radius:12px;padding:12px 14px;font-weight:600}
 .card.rc{border-color:var(--warn);background:rgba(240,180,41,.07)}
 .card.ok{border-color:rgba(47,191,113,.5)}
@@ -196,6 +206,8 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
     <div class="panel">
       <button id="rcBanner" class="hidden"></button>
       <button class="btn" id="camBar">&#128247; Skeniraj s kamero</button>
+      <button class="btn primary hidden" id="ocrBtn">📷 Slikaj nalepko</button>
+      <div id="ocrRead" class="hidden"></div>
       <div id="linkBox" class="hidden"></div>
       <div class="coderow">
         <input id="codeIn" placeholder="Šifra ali del opisa" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
@@ -305,6 +317,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
         <button class="btn small grow" id="ovImport">Naloži popisni list (Excel)</button>
         <button class="btn small danger" id="ovClear">Izbriši</button>
       </div>
+      <button class="btn small danger wide hidden" id="ovReset">⟲ Začni inventuro znova</button>
       <div class="tabs" id="ovTabs">
         <button data-tab="art" class="active">Po artiklih</button>
         <button data-tab="vn">Vnosi</button>
@@ -329,10 +342,18 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
   <button data-go="overview">Pregled</button>
 </nav>
 
+<div id="ocrCam" class="hidden">
+  <video id="ocrVideo" autoplay playsinline muted></video>
+  <div class="hint">Oznako artikla na nalepki postavite v okvir</div>
+  <div class="frame"></div>
+  <div id="ocrMsg"></div>
+  <div class="bar"><button class="btn" id="ocrClose">Zapri</button><button class="btn primary" id="ocrShot">📷 Slikaj</button></div>
+</div>
 <div id="toast"></div>
 <div id="busy" class="hidden"><div class="spin"></div><div id="busyTxt"></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 <script>
 'use strict';
 /* ================= NASTAVITVE ================= */
@@ -341,6 +362,7 @@ const CFG = {
   SUPABASE_KEY: 'sb_publishable_CtR-PKeCOrLiJ_-nVF8iEw_V5vXgo5C',
   AI_FUNCTION: 'read-label',
   CAMERA: false,           // true = skeniranje črtnih kod s kamero; false = samo iskanje po šifri in opisu
+  OCR: true,               // »Slikaj nalepko«: prebere besedilo z nalepke (šifra, kataloška številka, opis) – brez črtnih kod
   SYNC_MS: 15000
 };
 const DEFAULT_MFRS = ['Schneider Electric','Siemens','ABB','Rittal','ifm','SICK','Legrand','Hager','Eaton','Phoenix Contact','Weidmüller','WAGO','Finder','Omron','Gewiss','OBO Bettermann'];
@@ -446,7 +468,7 @@ async function rpc(fn, body) {
   const txt = await r.text();
   if (!r.ok) {
     let m = txt; try { m = JSON.parse(txt).message || txt; } catch {}
-    if (fn !== 'check_pin' && /Napačen PIN/.test(m) && curScreen !== 'login') pinRejected();
+    if (fn !== 'check_pin' && body && body.p_pin === S.pin && /Napačen PIN/.test(m) && curScreen !== 'login') pinRejected();
     throw new Error(m || ('HTTP ' + r.status));
   }
   return txt ? JSON.parse(txt) : null;
@@ -540,7 +562,9 @@ function startApp() {
   $('#hdr').classList.remove('hidden'); $('#nav').classList.remove('hidden');
   const vp = S.role === 'vpis';
   $('#navVpis').classList.toggle('hidden', !vp); $('#navList').classList.toggle('hidden', vp);
-  document.querySelector('nav button[data-go=scan]').classList.toggle('hidden', vp);   // vpisovalec: Vpis, Popisni list, Pregled
+  document.querySelector('nav button[data-go=scan]').classList.toggle('hidden', vp);
+  $('#ovReset').classList.toggle('hidden', !vp);
+  $('#ocrBtn').classList.toggle('hidden', !CFG.OCR);   // vpisovalec: Vpis, Popisni list, Pregled
   loadReviewsLocal().then(updateRcUI);
   OV.loaded = false; VP.loaded = false; updateHeader(); show(vp ? 'vpis' : 'scan'); updateBadge(); sync();
 }
@@ -609,6 +633,7 @@ function resumeScanner() { if (scanRunning && scanPaused) { try { scanner.resume
 // Kamera se po zajemu ali ob vpisu kode umakne, da sta vidna polje s kodo in predlogi
 function setCompact(on) { $('#scan').classList.toggle('compact', !!on); }
 function clearCode() {
+  $('#ocrRead').classList.add('hidden');
   $('#codeIn').value = ''; $('#preview').innerHTML = ''; $('#sugg').innerHTML = ''; S.aiData = null; S.method = 'rocno';
   S.link = null; $('#linkBox').classList.add('hidden'); $('#codeIn').placeholder = 'Šifra ali del opisa';
 }
@@ -685,10 +710,56 @@ async function artIndex() {
     ART = (await DB.all('articles')).map(a => {
       const alias = al.get(a.code) || [];
       const txt = [a.code, a.ean, a.manufacturer, a.description, ...alias].filter(Boolean).join(' ');
-      return { a, ck: skey(a.code), ek: skey(a.ean), ak: alias.map(skey), hay: norm(txt), hk: skey(txt) };
+      return { a, ck: skey(a.code), ek: skey(a.ean), ak: alias.map(skey), hay: norm(txt), hk: skey(txt),
+        cc: ckey(a.code), ce: ckey(a.ean), ca: alias.map(ckey), hc: ckey(txt) };
     }).sort((x, y) => (x.a.sort_order ?? 1e9) - (y.a.sort_order ?? 1e9) || x.a.code.localeCompare(y.a.code)); // vrstni red popisnega lista
   }
   return ART;
+}
+// OCR pogosto zamenja podobne znake – za primerjavo jih poenotimo
+function ckey(s) { return skey(s).replace(/o/g, '0').replace(/[il]/g, '1').replace(/s/g, '5').replace(/b/g, '8').replace(/z/g, '2'); }
+// Ali se niza razlikujeta za največ en znak (manjkajoč, odvečen ali zamenjan)
+function near1(a, b) {
+  if (a === b) return true;
+  const la = a.length, lb = b.length; if (Math.abs(la - lb) > 1) return false;
+  let i = 0, j = 0, d = 0;
+  while (i < la && j < lb) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++d > 1) return false;
+    if (la > lb) i++; else if (lb > la) j++; else { i++; j++; }
+  }
+  return d + (la - i) + (lb - j) <= 1;
+}
+// Iz prebranih besed z nalepke poišče najverjetnejše artikle
+async function ocrMatch(words) {
+  const toks = [];
+  const clean = w => String(w || '').replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+  const ws = words.map(w => ({ t: clean(w.text), c: w.confidence ?? 90 })).filter(w => w.t);
+  ws.forEach((w, i) => {
+    const codeLike = t => (t.match(/\d/g) || []).length >= 2 && ckey(t).length >= 4 && !/^\d[-.]?[a-zčšž]{3,}$/i.test(t);
+    if (codeLike(w.t)) toks.push(w.t);
+    const n = ws[i + 1];                                           // »LC1D 18BL« -> »LC1D18BL«
+    if (n && w.t.length <= 7 && n.t.length <= 7 && (w.t + n.t).replace(/\D/g, '').length >= 2 && ckey(w.t + n.t).length >= 5) toks.push(w.t + n.t);
+  });
+  const uniq = [...new Map(toks.map(t => [ckey(t), t])).entries()];   // [ključ, izvirnik]
+  const textWords = [...new Set(ws.map(w => norm(w.t)).filter(t => t.length >= 4 && !/\d/.test(t)))];
+  const out = [];
+  for (const x of await artIndex()) {
+    let sc = 0, tok = null, exact = false;
+    for (const [k, raw] of uniq) {
+      let v = 0, ex = false;
+      if (k === x.cc || (x.ce && k === x.ce) || x.ca.includes(k)) { v = 100 + k.length; ex = true; }
+      else if (k.length >= 5 && (x.cc.includes(k) || (x.cc.length >= 5 && k.includes(x.cc)) || x.ca.some(a => a.length >= 5 && (a.includes(k) || k.includes(a))))) v = 45 + k.length;
+      else if (k.length >= 6 && x.hc.includes(k)) v = 30 + k.length;
+      else if (k.length >= 6 && (near1(k, x.cc) || x.ca.some(a => near1(k, a)))) v = 60 + k.length;   // ena napačna črka/številka
+      if (v > 0) { sc += v; if (!tok || v > 60) { tok = raw; exact = exact || ex; } }
+    }
+    if (!sc) continue;
+    sc += textWords.filter(t => x.hay.includes(t)).length * 3;      // ujemanje besed opisa
+    out.push({ a: x.a, sc, tok, exact });
+  }
+  out.sort((p, q) => q.sc - p.sc || p.a.code.length - q.a.code.length);
+  return { list: out.slice(0, 10), tokens: uniq.map(u => u[1]) };
 }
 function matchScore(x, qk, toks) {
   if (x.ck === qk || (x.ek && x.ek === qk) || x.ak.includes(qk)) return 100;
@@ -796,6 +867,78 @@ $('#confirmBtn').onclick = async () => {
   }
   openItem(v, S.aiData);
 };
+
+/* ================= SLIKAJ NALEPKO (branje besedila, brez črtnih kod) ================= */
+let ocrStream = null, ocrWorker = null, ocrWorkerP = null;
+function ocrLoad() {
+  if (ocrWorkerP) return ocrWorkerP;
+  if (!window.Tesseract) return Promise.reject(new Error('bralnik besedila se ni naložil (preverite internet)'));
+  ocrWorkerP = Tesseract.createWorker('eng', 1, {
+    logger: m => { if (m.status && !$('#ocrCam').classList.contains('hidden') && /load|initializ/i.test(m.status)) $('#ocrMsg').textContent = 'Prvič nalagam bralnik besedila … ' + Math.round((m.progress || 0) * 100) + ' %'; }
+  }).then(async w => { await w.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1' }); ocrWorker = w; return w; })
+    .catch(e => { ocrWorkerP = null; throw e; });
+  return ocrWorkerP;
+}
+async function ocrOpen() {
+  $('#ocrMsg').textContent = ''; $('#ocrCam').classList.remove('hidden');
+  try {
+    ocrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    $('#ocrVideo').srcObject = ocrStream; await $('#ocrVideo').play().catch(() => {});
+  } catch (e) { $('#ocrMsg').textContent = 'Kamera ni dostopna: ' + (e.message || e) + '. Dovolite kamero v brskalniku.'; }
+  ocrLoad().catch(() => {});                                          // bralnik se nalaga, medtem ko ciljate
+}
+function ocrClose() {
+  if (ocrStream) ocrStream.getTracks().forEach(t => t.stop()); ocrStream = null;
+  $('#ocrVideo').srcObject = null; $('#ocrCam').classList.add('hidden');
+}
+function ocrCapture() {
+  const v = $('#ocrVideo'), vw = v.videoWidth, vh = v.videoHeight;
+  if (!vw) return null;
+  // izrez, ki približno ustreza okvirju na zaslonu (sredina slike)
+  const cw = vw * 0.9, ch = vh * 0.5, sx = (vw - cw) / 2, sy = vh * 0.2;
+  const sc = Math.min(2, 1600 / cw), c = document.createElement('canvas');
+  c.width = Math.round(cw * sc); c.height = Math.round(ch * sc);
+  const g = c.getContext('2d'); g.filter = 'grayscale(1) contrast(1.4)';
+  g.drawImage(v, sx, sy, cw, ch, 0, 0, c.width, c.height);
+  return c;
+}
+$('#ocrBtn').onclick = ocrOpen;
+$('#ocrClose').onclick = ocrClose;
+$('#ocrShot').onclick = async () => {
+  const c = ocrCapture(); if (!c) return toast('Kamera še ni pripravljena', 'bad');
+  $('#ocrMsg').textContent = 'Berem nalepko …'; $('#ocrShot').disabled = true;
+  try {
+    const w = await ocrLoad();
+    const { data } = await w.recognize(c);
+    const words = (data.words && data.words.length ? data.words : (data.text || '').split(/\s+/).map(t => ({ text: t })));
+    ocrClose(); await ocrResult(words);
+  } catch (e) { $('#ocrMsg').textContent = 'Branje ni uspelo: ' + (e.message || e); }
+  finally { $('#ocrShot').disabled = false; }
+};
+async function ocrResult(words) {
+  const { list, tokens } = await ocrMatch(words);
+  const read = words.map(w => w.text).join(' ').replace(/\s+/g, ' ').trim();
+  const top = list[0], second = list[1];
+  // en sam zanesljiv zadetek -> takoj na vnos količine
+  const sure = top && ((top.exact && !(second && second.exact))                 // točna šifra/kataloška številka
+    || (top.sc >= 100 && (!second || second.sc < top.sc * 0.6)) || (top.sc >= 50 && !second));
+  if (sure) {
+    S.method = 'ocr';
+    if (!top.exact && top.tok) S.link = { raw: top.tok, auto: true };
+    return openItem(top.a.code, null);
+  }
+  clearCode(); setCompact(true);
+  $('#ocrRead').textContent = read ? 'Prebrano: ' + read.slice(0, 160) : 'Na sliki ni bilo mogoče prebrati besedila.';
+  $('#ocrRead').classList.remove('hidden');
+  if (list.length) {
+    // več možnosti: koda se NE poveže samodejno (delna koda bi kasneje vodila na napačen artikel)
+    renderSuggList(list.map(m => m.a), list[0].tok || '', `Najverjetnejši artikli (${list.length}) – tapnite pravega:`);
+  } else {
+    toast('Šifre na nalepki ni bilo mogoče prepoznati – vpišite jo ročno', 'bad');
+    $('#codeIn').value = tokens[0] || ''; if (tokens[0]) lookupPreview(tokens[0]);
+    $('#codeIn').focus();
+  }
+}
 
 /* ================= AI BRANJE NALEPKE ================= */
 $('#aiBtn').onclick = async e => {
@@ -1399,6 +1542,54 @@ $('#ovClear').onclick = async () => {
   }
 };
 
+/* ================= ZAČNI INVENTURO ZNOVA ================= */
+// Izbriše vse popisane količine in statuse pregleda tega popisa (baza + vsi telefoni). Samo s PIN-om vpisovalca.
+async function applyReset(rs) {
+  if (!rs) return;
+  const key = 'resetVer:' + S.popis, seen = await DB.kvGet(key);
+  if (seen === (rs.ver || 0)) return;
+  if (!rs.ver) return DB.kvSet(key, 0);
+  const at = rs.at ? Date.parse(rs.at) : Infinity;
+  for (const e of await DB.all('entries')) if (e.popis === S.popis && Date.parse(e.created_at) <= at) await DB.del('entries', e.id);
+  REV = new Map(); await DB.kvSet('rev:' + S.popis, []); await DB.kvSet('revOut', []); await DB.kvSet(key, rs.ver);
+  if (seen !== undefined && seen !== null && S.role !== 'vpis') toast(`Inventura je bila začeta znova${rs.by ? ' (' + rs.by + ')' : ''} – prejšnji vnosi so izbrisani`, 'bad');
+  updateRcUI(); OV.loaded = false; VP.loaded = false;
+  if (curScreen === 'scan') renderLast(); if (curScreen === 'list') renderList(); if (curScreen === 'plist') renderPlist();
+}
+$('#ovReset').onclick = async () => {
+  if (!navigator.onLine) return toast('Za to potrebujete internet', 'bad');
+  const n = OV.loaded ? OV.entries.length : null;
+  const r = await modal({
+    title: '⟲ Začni inventuro znova',
+    body: `<p>Izbrisane bodo <b>vse popisane količine</b>${n !== null ? ` (${n} vnosov)` : ''} in vsi statusi pregleda za popis <b>${esc(S.popis)}</b> – v bazi in na telefonih vseh popisovalcev.</p>
+      <p>Popisni list in povezane kode ostanejo.</p>
+      <p class="muted">Priporočilo: najprej izvozite trenutno stanje v Excel.</p>`,
+    buttons: [{ label: 'Najprej izvozi v Excel', value: 'exp', cls: 'primary' }, { label: 'Nadaljuj z brisanjem', value: 'go', cls: 'danger' }, { label: 'Prekliči', value: null }]
+  });
+  if (r.value === 'exp') { await $('#ovExport').onclick(); return toast('Izvoz pripravljen. Za brisanje znova tapnite »Začni inventuro znova«.'); }
+  if (r.value !== 'go') return;
+  const c = await modal({
+    title: 'Potrditev',
+    body: `<label>PIN vpisovalca</label><input name="pin" type="password" autocomplete="off">
+      <label>Za potrditev vpišite ZAČNI ZNOVA</label><input name="ok" autocapitalize="characters" autocomplete="off">`,
+    buttons: [{ label: 'Izbriši vse vnose', value: true, cls: 'danger' }, { label: 'Prekliči', value: null }]
+  });
+  if (!c.value) return;
+  const word = (c.vals.ok || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (word !== 'ZACNI ZNOVA') return toast('Ni potrjeno – nič ni izbrisano', 'bad');
+  busy(true, 'Brišem vnose …');
+  try {
+    const del = await rpc('reset_popis', { p_pin: (c.vals.pin || '').trim(), p_popis: S.popis, p_by: S.name });
+    await applyReset(await rpc('get_reset', { p_pin: S.pin, p_popis: S.popis }));
+    busy(false); toast(`Inventura začeta znova – izbrisanih ${del} vnosov`, 'ok');
+    OV.entries = []; loadOverview(true);
+  } catch (e) {
+    busy(false);
+    toast(/reset_popis|get_reset|function/i.test(e.message) ? 'Najprej v Supabase zaženite posodobitev-6.sql'
+      : /Napačen PIN|samo vpisovalec/.test(e.message) ? 'Napačen PIN vpisovalca – nič ni izbrisano' : 'Ni uspelo: ' + e.message, 'bad');
+  }
+};
+
 /* ================= IZVOZ ================= */
 function exportXlsx(filename, sheets) {
   if (!window.XLSX) return toast('Knjižnica za Excel se ni naložila', 'bad');
@@ -1476,6 +1667,8 @@ async function _sync(manual) {
   if (!navigator.onLine) { updateBadge(); if (manual) toast('Ni internetne povezave', 'bad'); return; }
   syncing = true;
   try {
+    try { await applyReset(await rpc('get_reset', { p_pin: S.pin, p_popis: S.popis })); }
+    catch (e) { if (/Napačen PIN/.test(e.message)) throw e; }          // posodobitev-6 še ni zagnana
     const pend = (await DB.all('entries')).filter(e => !e.synced);
     for (let i = 0; i < pend.length; i += 200) {
       const chunk = pend.slice(i, i + 200);
