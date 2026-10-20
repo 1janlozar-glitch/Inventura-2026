@@ -75,6 +75,21 @@ h2{font-size:20px;margin:4px 0 8px}
 #linkBox .row{margin-top:8px;gap:8px}
 #linkBox .btn{flex:1}
 .linknote{color:var(--warn);font-size:14px;margin-top:4px}
+#rcBanner{display:block;width:100%;text-align:left;background:rgba(240,180,41,.12);border:1px solid var(--warn);color:var(--text);border-radius:12px;padding:12px 14px;font-weight:600}
+.card.rc{border-color:var(--warn);background:rgba(240,180,41,.07)}
+.card.ok{border-color:rgba(47,191,113,.5)}
+.rcnote{color:var(--warn);font-size:14px;margin-top:4px}
+.okmark{color:var(--ok);font-weight:700;white-space:nowrap}
+.who{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.who span{background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:13px}
+.vbtns{display:flex;gap:8px;margin-top:10px}
+.vbtns .btn{flex:1;min-height:46px;font-size:15px}
+.btn.warn{background:transparent;border-color:var(--warn);color:var(--warn)}
+.ord{color:var(--muted);font-size:13px;margin-right:6px;font-weight:400}
+.badge.rcd{background:rgba(47,140,255,.15);color:var(--accent)}
+#itReview{font-size:14px;margin-top:6px;padding:8px 10px;border-radius:10px}
+#itReview.rc{background:rgba(240,180,41,.12);color:var(--warn)}
+#itReview.done{background:rgba(47,191,113,.12);color:var(--ok)}
 mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1px}
 .cnt{font-size:13px;color:var(--ok);white-space:nowrap}
 .card.tap{cursor:pointer}
@@ -152,6 +167,8 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
       <input id="lgPin" type="password" inputmode="numeric" autocomplete="off">
       <label for="lgPopis">Popis</label>
       <input id="lgPopis" list="popisList" autocomplete="off">
+      <label for="lgRole">Vloga</label>
+      <select id="lgRole"><option value="popis">Popisovalec (štejem artikle)</option><option value="vpis">Vpisovalec (vnašam v ERP)</option></select>
       <datalist id="popisList"></datalist>
       <button class="btn primary wide" id="lgBtn" style="margin-top:22px">Začni popis</button>
     </div>
@@ -167,6 +184,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
       <button id="aiBtn" title="Preberi nalepko z AI">AI nalepka</button>
     </div>
     <div class="panel">
+      <button id="rcBanner" class="hidden"></button>
       <button class="btn" id="camBar">&#128247; Skeniraj s kamero</button>
       <div id="linkBox" class="hidden"></div>
       <div class="coderow">
@@ -186,6 +204,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
       <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
       <div class="muted" id="itEan" style="font-size:13px"></div>
       <div class="linknote hidden" id="itLink"></div>
+      <div id="itReview" class="hidden"></div>
       <div class="muted" id="itBook" style="font-size:14px;margin-top:4px"></div>
 
       <label for="itMfr">Proizvajalec</label>
@@ -229,10 +248,29 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
         <button data-f="all" class="active">Vsi</button>
         <button data-f="todo">Nepopisani</button>
         <button data-f="done">Popisani</button>
+        <button data-f="rc" id="plRcTab" class="hidden">Ponovno</button>
       </div>
       <div class="summary" id="plSummary"></div>
     </div>
     <div class="items" id="plItems"></div>
+  </section>
+
+  <!-- VPIS (vpisovalec) -->
+  <section class="screen" id="vpis">
+    <div class="toolbar">
+      <div class="row">
+        <input id="vpSearch" class="grow" placeholder="Išči šifro ali opis" autocomplete="off" style="font-size:16px;padding:10px 12px">
+        <button class="btn small primary" id="vpRefresh">Osveži</button>
+      </div>
+      <div class="tabs" id="vpTabs">
+        <button data-f="todo" class="active">Za vpis</button>
+        <button data-f="rc">Ponovno</button>
+        <button data-f="done">Zaključeni</button>
+        <button data-f="none">Nepopisani</button>
+      </div>
+      <div class="summary" id="vpSummary"></div>
+    </div>
+    <div class="items" id="vpItems"></div>
   </section>
 
   <!-- MOJ SEZNAM -->
@@ -253,7 +291,10 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
       <div class="row">
         <button class="btn small primary grow" id="ovRefresh">Osveži</button>
         <button class="btn small" id="ovExport">Izvozi vse</button>
-        <button class="btn small" id="ovImport">Naloži Excel</button>
+      </div>
+      <div class="row">
+        <button class="btn small grow" id="ovImport">Naloži popisni list (Excel)</button>
+        <button class="btn small danger" id="ovClear">Izbriši</button>
       </div>
       <div class="tabs" id="ovTabs">
         <button data-tab="art" class="active">Po artiklih</button>
@@ -274,7 +315,8 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 <nav id="nav" class="hidden">
   <button data-go="scan" class="active">Skeniraj</button>
   <button data-go="plist">Popisni list</button>
-  <button data-go="list">Moj seznam</button>
+  <button data-go="vpis" id="navVpis" class="hidden">Vpis</button>
+  <button data-go="list" id="navList">Moj seznam</button>
   <button data-go="overview">Pregled</button>
 </nav>
 
@@ -382,6 +424,7 @@ const DB = {
   putMany(s, vals) {
     return new Promise((res, rej) => { const t = this.db.transaction(s, 'readwrite'); const st = t.objectStore(s); vals.forEach(v => st.put(v)); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
   },
+  clear(s) { return this.req(s, 'readwrite', st => st.clear()); },
   kvGet(k) { return this.req('kv', 'readonly', st => st.get(k)); },
   kvSet(k, v) { return this.req('kv', 'readwrite', st => st.put(v, k)); }
 };
@@ -406,7 +449,8 @@ async function pinRejected() {
 }
 
 /* ================= STANJE ================= */
-const S = { name: '', pin: '', popis: '', location: '', method: 'rocno', aiData: null };
+const S = { name: '', pin: '', popis: '', role: 'popis', location: '', method: 'rocno', aiData: null };
+let REV = new Map(); // code -> { status: 'recount'|'recounted'|'done', note, target, by_name }
 let cur = null; // trenutni artikel na zaslonu Artikel
 
 /* ================= ZASLONI ================= */
@@ -419,12 +463,13 @@ function show(id) {
   else if (id !== 'item') stopScanner();
   if (id === 'list') renderList();
   if (id === 'plist') renderPlist();
+  if (id === 'vpis') loadVpis(!VP.loaded);
   if (id === 'overview' && !OV.loaded) loadOverview(true);
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.go));
 
 function updateHeader() {
-  $('#whoBtn').innerHTML = `<b>${esc(S.name)}</b> · ${esc(S.popis)}`;
+  $('#whoBtn').innerHTML = `<b>${esc(S.name)}</b>${S.role === 'vpis' ? ' (vpisovalec)' : ''} · ${esc(S.popis)}`;
 }
 
 /* ================= PRIJAVA ================= */
@@ -432,6 +477,7 @@ async function showLogin() {
   $('#hdr').classList.add('hidden'); $('#nav').classList.add('hidden');
   $('#lgName').value = (await DB.kvGet('lastName')) || '';
   $('#lgPopis').value = (await DB.kvGet('lastPopis')) || ('Inventura ' + new Date().getFullYear());
+  $('#lgRole').value = (await DB.kvGet('lastRole')) || 'popis';
   $('#lgPin').value = '';
   show('login');
 }
@@ -451,8 +497,9 @@ $('#lgBtn').onclick = async () => {
     const lp = await DB.kvGet('lastPin');
     if (lp !== pin) return toast('Brez interneta lahko vstopite le s PIN-om, ki je že bil uporabljen na tem telefonu', 'bad');
   }
-  Object.assign(S, { name, pin, popis });
-  await DB.kvSet('session', { name, pin, popis });
+  const role = $('#lgRole').value;
+  Object.assign(S, { name, pin, popis, role });
+  await DB.kvSet('session', { name, pin, popis, role }); await DB.kvSet('lastRole', role);
   await DB.kvSet('lastName', name); await DB.kvSet('lastPin', pin); await DB.kvSet('lastPopis', popis);
   startApp();
 };
@@ -460,7 +507,10 @@ $('#lgPin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn'
 
 function startApp() {
   $('#hdr').classList.remove('hidden'); $('#nav').classList.remove('hidden');
-  OV.loaded = false; updateHeader(); show('scan'); updateBadge(); sync();
+  const vp = S.role === 'vpis';
+  $('#navVpis').classList.toggle('hidden', !vp); $('#navList').classList.toggle('hidden', vp);
+  loadReviewsLocal().then(updateRcUI);
+  OV.loaded = false; VP.loaded = false; updateHeader(); show(vp ? 'vpis' : 'scan'); updateBadge(); sync();
 }
 
 $('#whoBtn').onclick = async () => {
@@ -604,7 +654,7 @@ async function artIndex() {
       const alias = al.get(a.code) || [];
       const txt = [a.code, a.ean, a.manufacturer, a.description, ...alias].filter(Boolean).join(' ');
       return { a, ck: skey(a.code), ek: skey(a.ean), ak: alias.map(skey), hay: norm(txt), hk: skey(txt) };
-    }).sort((x, y) => x.a.code.localeCompare(y.a.code));
+    }).sort((x, y) => (x.a.sort_order ?? 1e9) - (y.a.sort_order ?? 1e9) || x.a.code.localeCompare(y.a.code)); // vrstni red popisnega lista
   }
   return ART;
 }
@@ -764,6 +814,11 @@ async function openItem(code, ai) {
     ? `Koda ${cur.linkFrom} je najdena v šifri ali opisu tega artikla. Preverite artikel – ob shranjevanju se koda poveže.`
     : `Koda ${cur.linkFrom} bo povezana s šifro ${art.code}. Naslednjič jo aplikacija prepozna sama.`);
   $('#itLink').classList.toggle('hidden', !cur.linkFrom);
+  const rv = REV.get(cur.code), ir = $('#itReview');
+  ir.className = ''; ir.textContent = '';
+  if (rv && rv.status === 'recount') { ir.className = 'rc'; ir.textContent = `⚠ Vpisovalec prosi: preglej še enkrat${rv.note ? ' – ' + rv.note : ''}. Preštejte znova in shranite.`; }
+  else if (rv && rv.status === 'done') { ir.className = 'done'; ir.textContent = '✓ Pregledano – vpisovalec je artikel že zaključil.'; }
+  else ir.className = 'hidden';
   pauseScanner();
   $('#itCode').textContent = cur.code;
   $('#itBadges').innerHTML = (art ? '<span class="badge known">ZNAN</span>' : '<span class="badge new">NOV ARTIKEL</span>') + (ai ? '<span class="badge ai">AI</span>' : '');
@@ -811,12 +866,20 @@ $('#itSave').onclick = async () => {
     const mfr = $('#itMfr').value.trim(), desc = $('#itDesc').value.trim(), unit = $('#itUnit').value;
     const mine = (await DB.all('entries')).find(e => !e.deleted && e.popis === S.popis && e.counter === S.name && (e.location || '') === (S.location || '') && e.code === cur.code);
     let finalQty = qty;
+    const rvNow = REV.get(cur.code);
+    if (rvNow && rvNow.status === 'done') {
+      const c = await modal({ title: 'Artikel je že zaključen', body: '<p>Vpisovalec je ta artikel že pregledal in zaključil. Nov vnos ga vrne vpisovalcu v pregled.</p>',
+        buttons: [{ label: 'Shrani vseeno', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }] });
+      if (!c.value) return;
+    }
     if (mine) {
       const sum = round(Number(mine.quantity) + qty);
+      const isRc = rvNow && rvNow.status === 'recount';
+      const bAdd = { label: `Prištej (skupaj ${fmt(sum)})`, value: 'add', cls: isRc ? '' : 'primary' }, bRep = { label: `Zamenjaj (${fmt(qty)})`, value: 'replace', cls: isRc ? 'primary' : '' };
       const r = await modal({
-        title: 'Artikel je že popisan',
+        title: isRc ? 'Ponovni pregled – nova količina' : 'Artikel je že popisan',
         body: `<p><b>${esc(cur.code)}</b>: že vpisano <b>${fmt(mine.quantity)} ${esc(mine.unit || '')}</b>.</p><p>Nova količina: <b>${fmt(qty)}</b></p>`,
-        buttons: [{ label: `Prištej (skupaj ${fmt(sum)})`, value: 'add', cls: 'primary' }, { label: `Zamenjaj (${fmt(qty)})`, value: 'replace' }, { label: 'Prekliči', value: null }]
+        buttons: isRc ? [bRep, bAdd, { label: 'Prekliči', value: null }] : [bAdd, bRep, { label: 'Prekliči', value: null }]
       });
       if (!r.value) return;
       finalQty = r.value === 'add' ? sum : qty;
@@ -830,11 +893,12 @@ $('#itSave').onclick = async () => {
     const a = cur.art;
     if (!a || (mfr && mfr !== a.manufacturer) || (desc && desc !== a.description) || unit !== a.unit || (cur.ean && cur.ean !== a.ean)) {
       const na = { code: cur.code, ean: cur.ean || (a && a.ean) || null, manufacturer: mfr || (a && a.manufacturer) || null, description: desc || (a && a.description) || null,
-        unit, book_qty: a ? a.book_qty : null, source: a ? a.source : 'popis', updated_at: a ? a.updated_at : null };
+        unit, book_qty: a ? a.book_qty : null, source: a ? a.source : 'popis', sort_order: a ? a.sort_order ?? null : null, updated_at: a ? a.updated_at : null };
       await DB.put('articles', na); invalidateArts();
       await DB.put('outbox_art', { code: na.code, ean: na.ean, manufacturer: na.manufacturer, description: na.description, unit: na.unit, source: 'popis', created_by: S.name, ts: Date.now() + Math.random() });
     }
     if (cur.linkFrom) await saveAlias(cur.linkFrom, cur.code);
+    if (rvNow && (rvNow.status === 'recount' || rvNow.status === 'done')) await setReview(cur.code, 'recounted'); // nazaj k vpisovalcu
     if (mfr) await rememberMfr(mfr);
     toast(`Shranjeno: ${cur.code} × ${fmt(finalQty)} ${unit}`, 'ok'); vib(40);
     goBack(); updateBadge(); OV.loaded = false; sync();
@@ -852,6 +916,51 @@ async function renderLast() {
     `<div class="it"><span><b>${esc(e.code)}</b> ${esc(e.description || '')}</span><span>${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>`).join('') : '';
 }
 
+/* ================= PREGLED VPISOVALCA (statusi) ================= */
+const RV_TXT = { recount: 'Preglej še enkrat', recounted: 'Ponovno prešteto', done: 'Zaključeno' };
+async function loadReviewsLocal() { const r = (await DB.kvGet('rev:' + S.popis)) || []; REV = new Map(r.map(x => [x.code, x])); }
+function isForMe(rv) {
+  if (!rv || rv.status !== 'recount' || S.role === 'vpis') return false;
+  const t = (rv.target || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  return !t.length || t.includes(S.name.toLowerCase());
+}
+function myRecountCodes() { return [...REV.values()].filter(isForMe).map(r => r.code); }
+function updateRcUI(prev) {
+  const n = myRecountCodes().length;
+  $('#rcBanner').classList.toggle('hidden', !n);
+  $('#rcBanner').textContent = `⚠ Za ponovni pregled: ${n} ${n === 1 ? 'artikel' : n < 5 ? 'artikli' : 'artiklov'} ›`;
+  $('#plRcTab').classList.toggle('hidden', !n); $('#plRcTab').textContent = `Ponovno (${n})`;
+  if (!n && PL.f === 'rc') { PL.f = 'all'; $('#plTabs').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.f === 'all')); }
+  if (typeof prev === 'number' && n > prev) { toast(`Vpisovalec prosi za ponovni pregled (${n - prev})`, 'bad'); vib(300); }
+}
+$('#rcBanner').onclick = () => {
+  PL.f = 'rc'; $('#plTabs').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.f === 'rc'));
+  show('plist');
+};
+async function pullReviews() {
+  const prev = myRecountCodes().length;
+  const r = (await rpc('get_reviews', { p_pin: S.pin, p_popis: S.popis })) || [];
+  REV = new Map(r.map(x => [x.code, x])); await DB.kvSet('rev:' + S.popis, r);
+  updateRcUI(prev);
+}
+// Nastavi status artikla (optimistično; brez interneta se pošlje ob naslednji sinhronizaciji)
+async function setReview(code, status, note, target) {
+  const old = REV.get(code) || {};
+  if (status) REV.set(code, { ...old, code, status, by_name: S.name,
+    note: status === 'recount' ? note || null : old.note, target: status === 'recount' ? target || null : old.target, updated_at: nowIso() });
+  else REV.delete(code);
+  await DB.kvSet('rev:' + S.popis, [...REV.values()]); updateRcUI();
+  const job = { popis: S.popis, code, status: status || null, note: note || null, target: target || null, by: S.name };
+  try { await sendReview(job); return true; }
+  catch (e) {
+    if (/Napačen PIN/.test(e.message)) throw e;
+    const q = (await DB.kvGet('revOut')) || []; q.push(job); await DB.kvSet('revOut', q); updateBadge(); return false;
+  }
+}
+function sendReview(j) {
+  return rpc('set_review', { p_pin: S.pin, p_popis: j.popis, p_code: j.code, p_status: j.status, p_note: j.note, p_target: j.target, p_by: j.by });
+}
+
 /* ================= POPISNI LIST ================= */
 // Vsi artikli iz naloženega Excela (šifranta); popisovalec tapne artikel in vpiše količino
 const PL = { f: 'all' };
@@ -865,17 +974,27 @@ async function renderPlist() {
     return;
   }
   let res = q ? await searchArts(q, index.length) : index.map(x => x.a);
-  if (PL.f === 'todo') res = res.filter(a => !mine.has(a.code));
-  else if (PL.f === 'done') res = res.filter(a => mine.has(a.code));
+  const st = c => (REV.get(c) || {}).status;
+  if (PL.f === 'todo') res = res.filter(a => !mine.has(a.code) && st(a.code) !== 'done');
+  else if (PL.f === 'done') res = res.filter(a => mine.has(a.code) || st(a.code) === 'done');
+  else if (PL.f === 'rc') res = res.filter(a => isForMe(REV.get(a.code)));
+  else if (!q) res = [...res.filter(a => isForMe(REV.get(a.code))), ...res.filter(a => !isForMe(REV.get(a.code)))]; // ponovni pregled na vrh
   const doneCount = index.filter(x => mine.has(x.a.code)).length;
-  $('#plSummary').textContent = `${index.length} artiklov · popisali ste ${doneCount} · ostane ${index.length - doneCount}` + (q || PL.f !== 'all' ? ` · prikazanih ${res.length}` : '');
-  $('#plItems').innerHTML = res.length ? res.slice(0, 200).map(a => `
-    <div class="card tap" data-code="${esc(a.code)}">
-      <div class="r1"><b>${hl(a.code, q)}</b>${mine.has(a.code) ? `<span class="qty" style="color:var(--ok)">${fmt(mine.get(a.code))} ${esc(a.unit || '')}</span>` : `<span class="muted" style="font-size:14px">vpiši ›</span>`}</div>
+  const closed = index.filter(x => st(x.a.code) === 'done').length;
+  $('#plSummary').textContent = `${index.length} artiklov · popisali ste ${doneCount} · zaključenih ${closed}` + (q || PL.f !== 'all' ? ` · prikazanih ${res.length}` : '');
+  $('#plItems').innerHTML = res.length ? res.slice(0, 200).map(a => {
+    const rv = REV.get(a.code), rc = isForMe(rv), ok = rv && rv.status === 'done';
+    const right = ok ? `<span class="okmark">✓ ${mine.has(a.code) ? fmt(mine.get(a.code)) + ' ' + esc(a.unit || '') : 'pregledano'}</span>`
+      : mine.has(a.code) ? `<span class="qty" style="color:var(--ok)">${fmt(mine.get(a.code))} ${esc(a.unit || '')}</span>` : `<span class="muted" style="font-size:14px">vpiši ›</span>`;
+    return `
+    <div class="card tap ${rc ? 'rc' : ok ? 'ok' : ''}" data-code="${esc(a.code)}">
+      <div class="r1"><b>${hl(a.code, q)}</b>${right}</div>
       <div class="r2">${hl([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—', q)}</div>
+      ${rc ? `<div class="rcnote">⚠ Preglej še enkrat${rv.note ? ': ' + esc(rv.note) : ''}${rv.by_name ? ` (${esc(rv.by_name)})` : ''}</div>` : ''}
+      ${ok ? `<div class="r3" style="color:var(--ok)">Pregledano – vpisovalec je artikel zaključil</div>` : ''}
       ${a.book_qty !== null && a.book_qty !== undefined ? `<div class="r3">Knjižna zaloga: ${fmt(a.book_qty)} ${esc(a.unit || '')}</div>` : ''}
-    </div>`).join('') + (res.length > 200 ? `<div class="empty">Prikazanih prvih 200 – vpišite del šifre ali opisa za iskanje.</div>` : '')
-    : `<div class="empty">Ni zadetkov.</div>`;
+    </div>`; }).join('') + (res.length > 200 ? `<div class="empty">Prikazanih prvih 200 – vpišite del šifre ali opisa za iskanje.</div>` : '')
+    : `<div class="empty">${PL.f === 'rc' ? 'Ni artiklov za ponovni pregled.' : 'Ni zadetkov.'}</div>`;
 }
 $('#plSearch').addEventListener('input', () => { clearTimeout(plT); plT = setTimeout(renderPlist, 200); });
 $('#plTabs').addEventListener('click', e => {
@@ -886,6 +1005,101 @@ $('#plItems').addEventListener('click', e => {
   const c = e.target.closest('.card'); if (!c) return;
   S.method = 'izbira'; S.aiData = null; openItem(c.dataset.code, null);
 });
+
+/* ================= VPIS (modul za vpisovalca) ================= */
+// Artikli v vrstnem redu popisnega lista, s količinami po popisovalcih.
+// Vpisovalec: ✓ Zaključi (izgine s seznama, na popisnem listu kljukica) ali »Preglej še enkrat« (gre popisovalcu).
+const VP = { f: 'todo', entries: [], loaded: false, busy: false };
+async function loadVpis(withSpinner) {
+  if (VP.busy) return; VP.busy = true;
+  if (!navigator.onLine) { VP.busy = false; toast('Vpis potrebuje internet', 'bad'); return renderVpis(); }
+  if (withSpinner) busy(true, 'Nalagam popis …');
+  try {
+    await sync(); await sync();
+    VP.entries = (await rpc('get_entries', { p_pin: S.pin, p_popis: S.popis })) || [];
+    await pullReviews().catch(e => { if (!/Napačen PIN/.test(e.message)) toast('V Supabase zaženite posodobitev-4.sql', 'bad'); });
+    VP.loaded = true;
+  } catch (e) { toast('Nalaganje ni uspelo: ' + e.message, 'bad'); }
+  finally { busy(false); VP.busy = false; }
+  renderVpis();
+}
+async function vpisRows() {
+  const idx = await artIndex();
+  const g = new Map();
+  VP.entries.forEach(e => {
+    if (!g.has(e.code)) g.set(e.code, { qty: 0, unit: e.unit || '', by: new Map(), last: '', e });
+    const x = g.get(e.code); x.qty = round(x.qty + Number(e.quantity));
+    x.by.set(e.counter, round((x.by.get(e.counter) || 0) + Number(e.quantity)));
+    if ((e.updated_at || '') > x.last) x.last = e.updated_at || '';
+  });
+  const rows = idx.map((x, i) => ({ a: x.a, pos: x.a.sort_order ?? (i + 1), g: g.get(x.a.code), rv: REV.get(x.a.code) }));
+  const known = new Set(idx.map(x => x.a.code));
+  [...g.keys()].filter(c => !known.has(c)).sort().forEach(c => {          // artikli, ki jih ni na popisnem listu
+    const e = g.get(c).e; rows.push({ a: { code: c, manufacturer: e.manufacturer, description: e.description, unit: e.unit }, pos: '', g: g.get(c), rv: REV.get(c) });
+  });
+  return rows;
+}
+const vpCat = r => r.rv && r.rv.status === 'done' ? 'done' : r.rv && r.rv.status === 'recount' ? 'rc' : r.g ? 'todo' : 'none';
+async function renderVpis() {
+  if (curScreen !== 'vpis') return;
+  let rows = await vpisRows();
+  const counts = { todo: 0, rc: 0, done: 0, none: 0 }; rows.forEach(r => counts[vpCat(r)]++);
+  $('#vpTabs').querySelectorAll('button').forEach(b => {
+    const lbl = { todo: 'Za vpis', rc: 'Ponovno', done: 'Zaključeni', none: 'Nepopisani' }[b.dataset.f];
+    b.textContent = `${lbl} (${counts[b.dataset.f]})`; b.classList.toggle('active', b.dataset.f === VP.f);
+  });
+  const q = $('#vpSearch').value.trim();
+  rows = rows.filter(r => vpCat(r) === VP.f);
+  if (q) { const qk = skey(q); rows = rows.filter(r => skey([r.a.code, r.a.manufacturer, r.a.description, r.a.ean].join(' ')).includes(qk)); }
+  $('#vpSummary').textContent = !VP.loaded ? 'Tapnite Osveži.' :
+    `${counts.todo} za vpis · ${counts.rc} v ponovnem štetju · ${counts.done} zaključenih · ${counts.none} nepopisanih`;
+  $('#vpItems').innerHTML = rows.length ? rows.slice(0, 150).map(r => {
+    const { a, g, rv } = r, cat = vpCat(r), unit = (g && g.unit) || a.unit || '';
+    const diff = g && a.book_qty !== null && a.book_qty !== undefined ? round(g.qty - Number(a.book_qty)) : null;
+    const btns = cat === 'todo' ? `<button class="btn warn" data-act="rc">Preglej še enkrat</button><button class="btn ok" data-act="done">✓ Zaključi</button>`
+      : cat === 'rc' ? `<button class="btn" data-act="undo">Prekliči zahtevo</button><button class="btn ok" data-act="done">✓ Zaključi</button>`
+      : cat === 'done' ? `<button class="btn" data-act="undo">Vrni v vpis</button>`
+      : `<button class="btn warn" data-act="rc">Prosi za popis</button>`;
+    return `<div class="card ${cat === 'rc' ? 'rc' : cat === 'done' ? 'ok' : ''}" data-code="${esc(a.code)}">
+      <div class="r1"><b>${r.pos !== '' ? `<span class="ord">${r.pos}.</span>` : ''}${esc(a.code)}</b><span class="qty">${g ? fmt(g.qty) + ' ' + esc(unit) : '—'}</span></div>
+      <div class="r2">${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—')}</div>
+      ${g ? `<div class="who">${[...g.by].map(([n, v]) => `<span>${esc(n)}: <b>${fmt(v)}</b></span>`).join('')}</div>` : ''}
+      ${diff !== null ? `<div class="r3">Knjižno ${fmt(a.book_qty)} · razlika <span class="diff ${diff > 0 ? 'plus' : diff < 0 ? 'minus' : ''}">${diff > 0 ? '+' : ''}${fmt(diff)}</span></div>` : ''}
+      ${rv && rv.status === 'recounted' ? `<div class="r3"><span class="badge rcd">Ponovno prešteto${rv.by_name ? ' – ' + esc(rv.by_name) : ''}</span></div>` : ''}
+      ${cat === 'rc' ? `<div class="rcnote">⚠ Poslano v ponovni pregled${rv.note ? ': ' + esc(rv.note) : ''} · čaka: ${esc(rv.target || 'vsi popisovalci')}</div>` : ''}
+      ${cat === 'done' ? `<div class="r3" style="color:var(--ok)">✓ Zaključil ${esc(rv.by_name || '')}</div>` : ''}
+      <div class="vbtns">${btns}</div>
+    </div>`; }).join('') + (rows.length > 150 ? `<div class="empty">Prikazanih prvih 150 – uporabite iskanje.</div>` : '')
+    : `<div class="empty">${!VP.loaded ? '' : VP.f === 'todo' ? 'Ni artiklov za vpis. ✓' : 'Ni artiklov.'}</div>`;
+}
+$('#vpRefresh').onclick = () => loadVpis(true);
+let vpT; $('#vpSearch').addEventListener('input', () => { clearTimeout(vpT); vpT = setTimeout(renderVpis, 200); });
+$('#vpTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; VP.f = b.dataset.f; renderVpis(); });
+$('#vpItems').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const code = b.closest('.card').dataset.code, act = b.dataset.act;
+  if (act === 'done') { await setReview(code, 'done'); toast(`${code} zaključen ✓`, 'ok'); }
+  else if (act === 'undo') { await setReview(code, null); toast(`${code} vrnjen v vpis`); }
+  else if (act === 'rc') {
+    const r = (await vpisRows()).find(x => x.a.code === code);
+    const names = r && r.g ? [...r.g.by.keys()] : [];
+    const opts = [names.length ? `<option value="${esc(names.join(', '))}">${esc(names.length > 1 ? 'Vsem, ki so šteli (' + names.join(', ') + ')' : names[0])}</option>` : '',
+      `<option value="">Vsem popisovalcem</option>`, ...(names.length > 1 ? names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`) : [])].join('');
+    const m = await modal({
+      title: `Preglej še enkrat – ${code}`,
+      body: `<p class="muted">${esc([r?.a.manufacturer, r?.a.description].filter(Boolean).join(' – '))}${r && r.g ? ` · popisano ${fmt(r.g.qty)} ${esc(r.g.unit)}` : ''}</p>
+        <label>Komu</label><select name="target">${opts}</select>
+        <label>Opomba za popisovalca</label><textarea name="note" rows="2" placeholder="npr. količina se zdi prevelika, preveri tudi zadnji regal"></textarea>`,
+      buttons: [{ label: 'Pošlji v ponovni pregled', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }]
+    });
+    if (!m.value) return;
+    await setReview(code, 'recount', (m.vals.note || '').trim(), m.vals.target || '');
+    toast(`${code} poslan v ponovni pregled`, 'ok');
+  }
+  renderVpis();
+});
+// samodejna osvežitev, ko je vpisovalec na zaslonu Vpis
+setInterval(() => { if (curScreen === 'vpis' && !document.hidden && navigator.onLine && !document.querySelector('.modal')) loadVpis(false); }, 20000);
 
 /* ================= MOJ SEZNAM ================= */
 async function myEntries() {
@@ -1018,7 +1232,9 @@ $('#ovExport').onclick = async () => {
   const rows = groupByArticle(OV.entries, arts);
   const counted = new Set(rows.map(r => r.code));
   const dup = duplicates(OV.entries);
-  const byArt = rows.map(r => ({ 'Šifra': r.code, 'EAN': r.ean, 'Proizvajalec': r.manufacturer, 'Opis': r.description, 'Enota': r.unit, 'Popisano': r.qty,
+  const ord = new Map((await artIndex()).map((x, i) => [x.a.code, x.a.sort_order ?? i + 1]));
+  rows.sort((a, b) => (ord.get(a.code) ?? 1e9) - (ord.get(b.code) ?? 1e9) || a.code.localeCompare(b.code));
+  const byArt = rows.map(r => ({ 'Zap. št.': ord.get(r.code) ?? '', 'Status': RV_TXT[(REV.get(r.code) || {}).status] || '', 'Šifra': r.code, 'EAN': r.ean, 'Proizvajalec': r.manufacturer, 'Opis': r.description, 'Enota': r.unit, 'Popisano': r.qty,
     'Knjižna zaloga': r.book === null ? '' : r.book, 'Razlika': r.book === null ? '' : round(r.qty - r.book), 'Popisovalci': [...r.counters].join(', ') }));
   const notCounted = [...arts.values()].filter(a => !counted.has(a.code) && a.book_qty !== null && a.book_qty !== undefined && Number(a.book_qty) !== 0)
     .sort((a, b) => a.code.localeCompare(b.code))
@@ -1034,7 +1250,7 @@ $('#ovExport').onclick = async () => {
 $('#ovImport').onclick = () => { if (!navigator.onLine) return toast('Uvoz potrebuje internet', 'bad'); $('#importFile').value = ''; $('#importFile').click(); };
 const COLS = {
   code: ['sifra', 'sifra artikla', 'koda', 'koda artikla', 'code', 'id artikla', 'artikel', 'st artikla', 'art st'],
-  alias: ['kataloska stevilka', 'kat st', 'katalog', 'sifra proizvajalca', 'koda proizvajalca', 'sifra dobavitelja', 'dobaviteljeva sifra', 'art st dobavitelja', 'oznaka proizvajalca', 'referenca', 'ref'],
+  alias: ['kataloska stevilka', 'kat st', 'katalog', 'sifra proizvajalca', 'koda proizvajalca', 'sifra dobavitelja', 'dobaviteljeva sifra', 'art st dobavitelja', 'oznaka proizvajalca', 'referenca', 'ref', 'art nr', 'art no', 'artnr', 'article number', 'art nr proizvajalca'],
   ean: ['ean', 'ean koda', 'crtna koda', 'barcode', 'gtin'],
   manufacturer: ['proizvajalec', 'dobavitelj', 'manufacturer', 'znamka', 'brand', 'blagovna znamka'],
   description: ['opis', 'naziv', 'naziv artikla', 'description', 'ime', 'name', 'ime artikla'],
@@ -1078,7 +1294,7 @@ $('#importFile').addEventListener('change', async ev => {
   if (!rows.length) return toast('Datoteka je prazna', 'bad');
   const headers = Object.keys(rows[0]); const map = detectCols(headers);
   if (!map.code) return modal({ title: 'Ni stolpca s šifro', body: `<p>Stolpec s šifro artikla mora imeti naslov »Šifra« ali »Koda«.</p><p class="muted">Najdeni stolpci: ${esc(headers.join(', '))}</p>` });
-  const arts = rows.map(r => ({
+  const arts = rows.map((r, i) => ({ sort_order: i + 1,
     code: cellStr(r[map.code]), ean: map.ean ? cellEan(r[map.ean]) || null : null,
     manufacturer: map.manufacturer ? cellStr(r[map.manufacturer]) || null : null, description: map.description ? cellStr(r[map.description]) || null : null,
     unit: map.unit ? cellStr(r[map.unit]) || null : null, book_qty: map.book_qty ? parseNum(r[map.book_qty]) : null, source: 'uvoz', created_by: S.name
@@ -1110,6 +1326,49 @@ $('#importFile').addEventListener('change', async ev => {
   } catch (e) { busy(false); toast('Uvoz ni uspel: ' + e.message, 'bad'); }
 });
 
+/* ================= BRISANJE POPISNEGA LISTA ================= */
+async function clearLocalList() {
+  await DB.clear('articles'); await DB.clear('aliases');
+  await DB.kvSet('artSince', null); await DB.kvSet('aliasSince', null);
+  invalidateArts();
+}
+$('#ovClear').onclick = async () => {
+  if (!navigator.onLine) return toast('Brisanje potrebuje internet', 'bad');
+  const n = (await artIndex()).length;
+  const r = await modal({
+    title: 'Izbriši popisni list',
+    body: `<p>Na telefonu je ${n} artiklov. Popisane količine ostanejo – izbriše se samo seznam artiklov.</p>
+      <p class="muted">Seznam se izbriše pri vseh popisovalcih (ob naslednji sinhronizaciji).</p>`,
+    buttons: [
+      { label: 'Izbriši uvoženi popisni list', value: 'uvoz', cls: 'danger' },
+      { label: 'Izbriši vse artikle in povezane kode', value: 'all', cls: 'danger' },
+      { label: 'Prekliči', value: null }
+    ]
+  });
+  if (!r.value) return;
+  const c = await modal({
+    title: 'Potrditev',
+    body: `<p>${r.value === 'all' ? 'Izbrisani bodo <b>vsi artikli</b>, tudi tisti, vpisani med popisom, in vse povezane kode.' : 'Izbrisani bodo artikli, <b>uvoženi iz Excela</b>. Artikli, vpisani med popisom, ostanejo.'}</p>
+      <p>Za potrditev vpišite <b>BRIŠI</b>:</p><input name="ok" autocapitalize="characters" autocomplete="off">`,
+    buttons: [{ label: 'Izbriši', value: true, cls: 'danger' }, { label: 'Prekliči', value: null }]
+  });
+  if (!c.value) return;
+  if ((c.vals.ok || '').trim().toUpperCase() !== 'BRIŠI' && (c.vals.ok || '').trim().toUpperCase() !== 'BRISI') return toast('Ni potrjeno – nič ni izbrisano', 'bad');
+  busy(true, 'Brišem …');
+  try {
+    await sync();
+    const del = await rpc('clear_articles', { p_pin: S.pin, p_all: r.value === 'all' });
+    const v = await rpc('get_list_version', { p_pin: S.pin });
+    await clearLocalList(); await DB.kvSet('listVersion', v);
+    await pullArticles(); await pullAliases().catch(() => {});
+    busy(false); toast(`Izbrisanih ${del} artiklov iz popisnega lista`, 'ok');
+    OV.loaded = false; loadOverview(true);
+  } catch (e) {
+    busy(false);
+    toast(/clear_articles|get_list_version|function/i.test(e.message) ? 'Najprej v Supabase zaženite posodobitev-3.sql' : 'Brisanje ni uspelo: ' + e.message, 'bad');
+  }
+};
+
 /* ================= IZVOZ ================= */
 function exportXlsx(filename, sheets) {
   if (!window.XLSX) return toast('Knjižnica za Excel se ni naložila', 'bad');
@@ -1136,7 +1395,7 @@ function exportXlsx(filename, sheets) {
 /* ================= SINHRONIZACIJA ================= */
 let syncing = false, lastSyncErr = '';
 async function pendingCount() {
-  const es = await DB.all('entries'); return es.filter(e => !e.synced).length + (await DB.count('outbox_art')) + (await DB.count('outbox_alias'));
+  const es = await DB.all('entries'); return es.filter(e => !e.synced).length + (await DB.count('outbox_art')) + (await DB.count('outbox_alias')) + (((await DB.kvGet('revOut')) || []).length);
 }
 async function updateBadge() {
   const n = await pendingCount(); const b = $('#syncBadge');
@@ -1154,7 +1413,7 @@ async function pullArticles() {
   for (let guard = 0; guard < 100; guard++) {
     const rows = await rpc('get_articles', { p_pin: S.pin, p_since: ts || '-infinity', p_after_code: code }) || [];
     if (rows.length) {
-      const local = rows.map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, updated_at: r.updated_at }));
+      const local = rows.map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, sort_order: r.sort_order ?? null, updated_at: r.updated_at }));
       await DB.putMany('articles', local); invalidateArts();
       const lr = rows[rows.length - 1]; ts = lr.updated_at; code = lr.code; last = { ts: lr.updated_at, code: lr.code };
     }
@@ -1202,6 +1461,14 @@ async function _sync(manual) {
       await rpc('upsert_articles', { p_pin: S.pin, p_articles: chunk });
       for (const a of chunk) { const now = await DB.get('outbox_art', a.code); if (now && now.ts === a.ts) await DB.del('outbox_art', a.code); }
     }
+    try {
+      const v = await rpc('get_list_version', { p_pin: S.pin });
+      const lv = await DB.kvGet('listVersion');
+      if (typeof v === 'number' && lv !== v) {            // popisni list je bil izbrisan ali zamenjan
+        if (lv !== undefined && lv !== null) await clearLocalList();
+        await DB.kvSet('listVersion', v);
+      }
+    } catch (e) { if (/Napačen PIN/.test(e.message)) throw e; } // posodobitev-3 še ni zagnana
     await pullArticles();
     // povezane kode (če posodobitev-2.sql še ni zagnana, se počaka – vnosi tečejo normalno)
     try {
@@ -1216,6 +1483,12 @@ async function _sync(manual) {
       if (/Napačen PIN/.test(e.message)) throw e;
       if (!aliasFnMissing) { aliasFnMissing = true; console.warn('Povezane kode:', e.message); }
     }
+    try {
+      const q = (await DB.kvGet('revOut')) || [];
+      while (q.length) { await sendReview(q[0]); q.shift(); await DB.kvSet('revOut', q); }
+      await pullReviews();
+      if (curScreen === 'plist' && !$('#plSearch').matches(':focus')) renderPlist();
+    } catch (e) { if (/Napačen PIN/.test(e.message)) throw e; } // posodobitev-4 še ni zagnana
     lastSyncErr = '';
     if (manual) toast('Vse naloženo', 'ok');
   } catch (e) {
@@ -1224,6 +1497,7 @@ async function _sync(manual) {
   } finally {
     syncing = false; updateBadge();
     if (curScreen === 'list') renderList();
+    if (curScreen === 'plist' && !$('#plSearch').matches(':focus')) renderPlist();
   }
 }
 window.addEventListener('online', () => sync());
