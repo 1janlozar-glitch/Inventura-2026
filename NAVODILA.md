@@ -70,6 +70,7 @@ PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'N
 - **↺ Preglej še enkrat** – artikel gre nazaj popisovalcu, ki ga je štel (opomba ni obvezna). Ko ga ta znova prešteje, se vrne na *Za vpis* z oznako *Ponovno prešteto*.
 - Zavihki: **Za vpis**, **Ponovno** (čaka popisovalca), **Zaključeni** (gumb *Vrni v vpis*, če ste se zmotili).
 - Zaključiti in vračati artikle lahko samo vpisovalec.
+- **Rdeč števec** na zavihku *Vpis* pokaže, koliko artiklov čaka na vpis. Artikli z **rdečim !** so bili ponovno prešteti – v ERP vpišite novo količino. So vedno na vrhu seznama.
 
 ## Za vodjo popisa
 
@@ -104,3 +105,10 @@ Izbrišejo se vse popisane količine in statusi pregleda tega popisa – v bazi 
 
 **Pregled → Izbriši** → izberite *Izbriši uvoženi popisni list* (artikli, vpisani med popisom, ostanejo) ali *Izbriši vse artikle in povezane kode* → vpišite **BRIŠI**.
 Seznam se izbriše v bazi in ob naslednji sinhronizaciji na vseh telefonih. **Popisane količine ostanejo.** Nov popisni list nato naložite z *Naloži popisni list (Excel)*.
+
+## Prikaz
+
+- **☀️ / 🌙** zgoraj desno: dnevni ali nočni prikaz (aplikacija si izbiro zapomni; privzeto sledi nastavitvi telefona).
+- Med popisom zaslon telefona ne ugasne sam.
+- Pri nenavadno veliki količini (npr. 25000 ali več kot 10× knjižne zaloge) aplikacija vpraša, ali je pravilna – zaščita pred tipkarsko napako.
+- Ime se poenoti (JAN, jan → Jan), da je ista oseba vedno ena.

@@ -13,10 +13,13 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <style>
-:root{--bg:#111418;--card:#1b2027;--card2:#222831;--line:#2d3540;--text:#eef1f4;--muted:#9aa4b0;--accent:#2f8cff;--ok:#2fbf71;--warn:#f0b429;--bad:#ef5a5a}
+:root{--bg:#111418;--card:#1b2027;--card2:#222831;--line:#2d3540;--text:#eef1f4;--muted:#9aa4b0;--accent:#2f8cff;--ok:#2fbf71;--warn:#f0b429;--bad:#ef5a5a;--input:#0b0e11;--okText:#04210f;color-scheme:dark}
+:root[data-theme=light]{--bg:#eef1f5;--card:#ffffff;--card2:#f1f3f7;--line:#d3d9e1;--text:#121820;--muted:#5b6674;--accent:#1d6fe5;--ok:#15954a;--warn:#b26a00;--bad:#d42a2a;--input:#ffffff;--okText:#ffffff;color-scheme:light}
+:root[data-theme=light] #toast{color:#fff}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;max-width:680px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+@media (max-width:700px){body{border:0}}
 .hidden{display:none!important}
 header{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line);background:var(--card)}
 header .who{flex:1;min-width:0;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;text-align:left;padding:6px 0}
@@ -27,18 +30,26 @@ main{flex:1;overflow:hidden;position:relative}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .screen.active{display:flex}
 nav{display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:var(--card)}
-nav button{flex:1;padding:14px 2px;background:none;border:0;color:var(--muted);font-size:14px;font-weight:600}
+nav button{flex:1;padding:8px 2px 10px;background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:600;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:58px}
+nav button .ni{font-size:21px;line-height:1.1}
+nav .nb{position:absolute;top:4px;left:calc(50% + 6px);min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--bad);color:#fff;font-size:12px;font-weight:800;line-height:20px;text-align:center}
+.themeBtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:18px;flex:none}
+#login .themeBtn{position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px}
+.excl{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--bad);color:#fff;font-weight:900;font-size:15px;line-height:22px;text-align:center;margin-right:8px;vertical-align:middle}
+.card.redo{border-color:var(--bad);box-shadow:inset 4px 0 0 var(--bad)}
+.redonote{color:var(--bad);font-weight:700;font-size:14px;margin-top:6px}
+@media (max-width:380px){.btn{font-size:16px;padding:0 12px}nav button{font-size:11px}nav button .ni{font-size:19px}h2{font-size:18px}}
 nav button.active{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}
 button{font:inherit;cursor:pointer;color:inherit}
 .btn{min-height:56px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:17px;font-weight:600}
 .btn:active{filter:brightness(1.2)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.ok{background:var(--ok);border-color:var(--ok);color:#04210f}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:var(--okText)}
 .btn.danger{background:transparent;border-color:var(--bad);color:var(--bad)}
 .btn.small{min-height:42px;font-size:15px;padding:0 12px}
 .btn.wide{width:100%}
 .btn[disabled]{opacity:.5}
-input,select,textarea{font:inherit;font-size:18px;width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:#0b0e11;color:var(--text);outline:none}
+input,select,textarea{font:inherit;font-size:18px;width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--input);color:var(--text);outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 textarea{min-height:64px;resize:vertical}
 label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
@@ -48,6 +59,7 @@ label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
 .grow{flex:1;min-width:0}
 h2{font-size:20px;margin:4px 0 8px}
 /* login */
+#login{position:relative}
 #login .wrap{max-width:420px;margin:auto;width:100%;padding:24px 20px}
 #login h1{font-size:26px;margin:0 0 4px}
 /* scan */
@@ -120,6 +132,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 #preview .known{color:var(--ok)}#preview .new{color:var(--warn)}
 .last{display:flex;flex-direction:column;gap:6px}
 .last .it{display:flex;justify-content:space-between;gap:8px;background:var(--card);border-radius:10px;padding:8px 12px;font-size:14px}
+.last .it span:last-child{white-space:nowrap}
 .last .it span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* item */
 .codebig{font-size:26px;font-weight:700;word-break:break-all}
@@ -148,7 +161,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
 .dot.ok{background:var(--ok)}.dot.pend{background:var(--warn)}
 .tabs{display:flex;gap:6px}
-.tabs button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:600}
+.tabs button{flex:1;min-height:44px;font-size:14px;white-space:nowrap;padding:0 4px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:600}
 .tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .filters select,.filters input{font-size:15px;padding:10px}
@@ -172,11 +185,13 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 <header id="hdr" class="hidden">
   <button class="who" id="whoBtn"></button>
   <span class="sync" id="syncBadge">…</span>
+  <button class="themeBtn" id="themeBtn" title="Dan / noč" aria-label="Dan / noč">🌙</button>
 </header>
 
 <main>
   <!-- PRIJAVA -->
   <section class="screen" id="login">
+    <button class="themeBtn" id="themeBtn2" title="Dan / noč" aria-label="Dan / noč">🌙</button>
     <div class="wrap">
       <h1>Popis inventure</h1>
       <div class="roles">
@@ -335,11 +350,11 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 </main>
 
 <nav id="nav" class="hidden">
-  <button data-go="scan" class="active">Išči</button>
-  <button data-go="plist">Popisni list</button>
-  <button data-go="vpis" id="navVpis" class="hidden">Vpis</button>
-  <button data-go="list" id="navList">Moj seznam</button>
-  <button data-go="overview">Pregled</button>
+  <button data-go="scan" class="active"><span class="ni">🔍</span>Išči</button>
+  <button data-go="plist"><span class="ni">📋</span>Popisni list<span class="nb hidden" id="nbPlist"></span></button>
+  <button data-go="vpis" id="navVpis" class="hidden"><span class="ni">✍️</span>Vpis<span class="nb hidden" id="nbVpis"></span></button>
+  <button data-go="list" id="navList"><span class="ni">🧾</span>Moj seznam</button>
+  <button data-go="overview"><span class="ni">📊</span>Pregled</button>
 </nav>
 
 <div id="ocrCam" class="hidden">
@@ -382,6 +397,9 @@ const round = n => Math.round(n * 1000) / 1000;
 const fmt = n => (n === null || n === undefined || n === '') ? '' : Number(n).toLocaleString('sl-SI', {maximumFractionDigits: 3});
 const fmtTime = iso => { try { const d = new Date(iso); return d.toLocaleString('sl-SI', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
 const isEan = s => /^\d{8}$|^\d{12,14}$/.test(s);
+const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+const nameKey = n => String(n || '').trim().toLowerCase();
+const nameNice = n => String(n || '').trim().toLowerCase().replace(/(^|[\s-])\S/g, c => c.toUpperCase());
 const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 
 let toastT;
@@ -418,6 +436,30 @@ function modal({ title, body = '', buttons = [{ label: 'V redu', value: true, cl
     document.body.appendChild(ov);
     const f = ov.querySelector('input,textarea,select'); if (f) setTimeout(() => { f.focus(); f.select && f.select(); }, 60);
   });
+}
+
+/* ================= DAN / NOČ ================= */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name=theme-color]').content = t === 'light' ? '#ffffff' : '#111418';
+  ['#themeBtn', '#themeBtn2'].forEach(id => { const b = $(id); if (b) b.textContent = t === 'light' ? '🌙' : '☀️'; });
+}
+function initTheme() {
+  let t = null; try { t = localStorage.getItem('theme'); } catch {}
+  if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  applyTheme(t);
+}
+function toggleTheme() {
+  const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  applyTheme(t); try { localStorage.setItem('theme', t); } catch {}
+}
+initTheme();
+$('#themeBtn').onclick = toggleTheme; $('#themeBtn2').onclick = toggleTheme;
+
+/* ================= ZASLON NE UGASNE MED POPISOM ================= */
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && !wakeLock && !document.hidden && S.name) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {}
 }
 
 /* ================= LOKALNA BAZA (IndexedDB) ================= */
@@ -530,7 +572,9 @@ async function fillPopisList() {
   try { const list = await rpc('list_popisi', { p_pin: pin }); $('#popisList').innerHTML = (list || []).map(p => `<option value="${esc(p.popis)}">`).join(''); } catch {}
 }
 $('#lgBtn').onclick = async () => {
-  const name = $('#lgName').value.trim(), pin = $('#lgPin').value.trim(), popis = $('#lgPopis').value.trim();
+  // ime poenotimo (JAN, jan -> Jan), da je ista oseba vedno ena
+  const name = $('#lgName').value.trim().replace(/\s+/g, ' ').toLowerCase().replace(/(^|[\s-])\S/g, c => c.toUpperCase());
+  const pin = $('#lgPin').value.trim(), popis = $('#lgPopis').value.trim();
   if (!name || !pin || !popis) return toast('Izpolnite ime, PIN in popis', 'bad');
   const role = LOGIN_ROLE;
   if (navigator.onLine) {
@@ -566,7 +610,7 @@ function startApp() {
   $('#ovReset').classList.toggle('hidden', !vp);
   $('#ocrBtn').classList.toggle('hidden', !CFG.OCR);   // vpisovalec: Vpis, Popisni list, Pregled
   loadReviewsLocal().then(updateRcUI);
-  OV.loaded = false; VP.loaded = false; updateHeader(); show(vp ? 'vpis' : 'scan'); updateBadge(); sync();
+  OV.loaded = false; VP.loaded = false; updateHeader(); show(vp ? 'vpis' : 'scan'); updateBadge(); sync(); keepAwake();
 }
 
 $('#whoBtn').onclick = async () => {
@@ -1036,10 +1080,16 @@ $('#itSave').onclick = async () => {
   if (saving || !cur) return;
   const qty = parseNum($('#itQty').value);
   if (qty === null || qty < 0) { toast('Vpišite količino', 'bad'); $('#itQty').focus(); return; }
+  const bq = cur.art && Number(cur.art.book_qty);
+  if (qty >= 10000 || (bq > 0 && qty >= 50 && qty > bq * 10)) {          // zaščita pred tipkarsko napako
+    const c = await modal({ title: 'Preverite količino', body: `<p>Vpisali ste <b>${fmt(qty)} ${esc($('#itUnit').value)}</b>${bq > 0 ? ` (knjižna zaloga ${fmt(bq)})` : ''}. Je količina pravilna?</p>`,
+      buttons: [{ label: 'Da, shrani', value: true, cls: 'primary' }, { label: 'Popravi', value: null }] });
+    if (!c.value) { $('#itQty').focus(); $('#itQty').select(); return; }
+  }
   saving = true;
   try {
     const mfr = $('#itMfr').value.trim(), desc = $('#itDesc').value.trim(), unit = $('#itUnit').value;
-    const mine = (await DB.all('entries')).find(e => !e.deleted && e.popis === S.popis && e.counter === S.name && (e.location || '') === (S.location || '') && e.code === cur.code);
+    const mine = (await DB.all('entries')).find(e => !e.deleted && e.popis === S.popis && sameName(e.counter, S.name) && (e.location || '') === (S.location || '') && e.code === cur.code);
     let finalQty = qty;
     const rvNow = REV.get(cur.code);
     if (rvNow && rvNow.status === 'done') {
@@ -1085,7 +1135,7 @@ function resetScan() {
   lastScan = { text: '', t: 0 }; resumeScanner();
 }
 async function renderLast() {
-  const es = (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && e.counter === S.name)
+  const es = (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && sameName(e.counter, S.name))
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3);
   $('#lastList').innerHTML = es.length ? '<div class="muted" style="font-size:13px">Zadnji vnosi</div>' + es.map(e =>
     `<div class="it"><span><b>${esc(e.code)}</b> ${esc(e.description || '')}</span><span>${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>`).join('') : '';
@@ -1105,6 +1155,7 @@ function updateRcUI(prev) {
   $('#rcBanner').classList.toggle('hidden', !n);
   $('#rcBanner').textContent = `⚠ Za ponovni pregled: ${n} ${n === 1 ? 'artikel' : n < 5 ? 'artikli' : 'artiklov'} ›`;
   $('#plRcTab').classList.toggle('hidden', !n); $('#plRcTab').textContent = `Ponovno (${n})`;
+  $('#nbPlist').classList.toggle('hidden', !n); $('#nbPlist').textContent = n;
   if (!n && PL.f === 'rc') { PL.f = 'all'; $('#plTabs').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.f === 'all')); }
   if (typeof prev === 'number' && n > prev) { toast(`Vpisovalec prosi za ponovni pregled (${n - prev})`, 'bad'); vib(300); }
 }
@@ -1205,7 +1256,7 @@ async function vpisRows() {
   VP.entries.forEach(e => {
     if (!g.has(e.code)) g.set(e.code, { qty: 0, unit: e.unit || '', by: new Map(), last: '', e });
     const x = g.get(e.code); x.qty = round(x.qty + Number(e.quantity));
-    x.by.set(e.counter, round((x.by.get(e.counter) || 0) + Number(e.quantity)));
+    const nk = nameNice(e.counter); x.by.set(nk, round((x.by.get(nk) || 0) + Number(e.quantity)));   // JAN in Jan = ista oseba
     if ((e.updated_at || '') > x.last) x.last = e.updated_at || '';
   });
   const rows = idx.map((x, i) => ({ a: x.a, pos: x.a.sort_order ?? (i + 1), g: g.get(x.a.code), rv: REV.get(x.a.code) }));
@@ -1216,31 +1267,44 @@ async function vpisRows() {
   return rows;
 }
 const vpCat = r => r.rv && r.rv.status === 'done' ? 'done' : r.rv && r.rv.status === 'recount' ? 'rc' : r.g ? 'todo' : 'none';
+// rdeč števec na zavihku Vpis: koliko artiklov čaka na vpis v ERP
+async function updateVpisBadge(rows) {
+  if (S.role !== 'vpis') return;
+  rows = rows || await vpisRows();
+  const n = rows.filter(r => vpCat(r) === 'todo').length;
+  $('#nbVpis').classList.toggle('hidden', !n); $('#nbVpis').textContent = n > 99 ? '99+' : n;
+}
 async function renderVpis() {
+  if (S.role === 'vpis') updateVpisBadge();
   if (curScreen !== 'vpis') return;
   let rows = await vpisRows();
+  // ponovno prešteti (spremenjena količina) na vrh
+  rows.sort((p, q) => ((q.rv && q.rv.status === 'recounted') - (p.rv && p.rv.status === 'recounted')));
   const counts = { todo: 0, rc: 0, done: 0, none: 0 }; rows.forEach(r => counts[vpCat(r)]++);
+  const redo = rows.filter(r => vpCat(r) === 'todo' && r.rv && r.rv.status === 'recounted').length;
   $('#vpTabs').querySelectorAll('button').forEach(b => {
     const lbl = { todo: 'Za vpis', rc: 'Ponovno', done: 'Zaključeni' }[b.dataset.f];
-    b.textContent = `${lbl} (${counts[b.dataset.f]})`; b.classList.toggle('active', b.dataset.f === VP.f);
+    b.textContent = `${b.dataset.f === 'todo' && redo ? '❗' : ''}${lbl} ${counts[b.dataset.f]}`; b.classList.toggle('active', b.dataset.f === VP.f);
   });
   const q = $('#vpSearch').value.trim();
   rows = rows.filter(r => vpCat(r) === VP.f);
   if (q) { const qk = skey(q); rows = rows.filter(r => skey([r.a.code, r.a.manufacturer, r.a.description, r.a.ean].join(' ')).includes(qk)); }
   $('#vpSummary').textContent = !VP.loaded ? 'Tapnite Osveži.' :
-    `Preverite količino → ✓ Zaključi, ali ↺ Preglej še enkrat (gre nazaj popisovalcu). Nepopisanih: ${counts.none}`;
+    `✓ Zaključi = vpisano v ERP · ↺ = nazaj popisovalcu · nepopisanih ${counts.none}`;
   $('#vpItems').innerHTML = rows.length ? rows.slice(0, 150).map(r => {
     const { a, g, rv } = r, cat = vpCat(r), unit = (g && g.unit) || a.unit || '';
     const diff = g && a.book_qty !== null && a.book_qty !== undefined ? round(g.qty - Number(a.book_qty)) : null;
     const btns = cat === 'todo' ? `<button class="btn warn" data-act="rc">↺ Preglej še enkrat</button><button class="btn ok" data-act="done">✓ Zaključi</button>`
       : cat === 'rc' ? `<button class="btn ok" data-act="done">✓ Zaključi</button>`
       : `<button class="btn" data-act="undo">Vrni v vpis</button>`;
-    return `<div class="card ${cat === 'rc' ? 'rc' : cat === 'done' ? 'ok' : ''}" data-code="${esc(a.code)}">
-      <div class="r1"><b>${r.pos !== '' ? `<span class="ord">${r.pos}.</span>` : ''}${esc(a.code)}</b><span class="qty">${g ? fmt(g.qty) + ' ' + esc(unit) : '—'}</span></div>
+    const redoIt = cat === 'todo' && rv && rv.status === 'recounted';
+    return `<div class="card ${cat === 'rc' ? 'rc' : cat === 'done' ? 'ok' : ''} ${redoIt ? 'redo' : ''}" data-code="${esc(a.code)}">
+      <div class="r1"><b>${redoIt ? '<span class="excl">!</span>' : ''}${r.pos !== '' ? `<span class="ord">${r.pos}.</span>` : ''}${esc(a.code)}</b><span class="qty">${g ? fmt(g.qty) + ' ' + esc(unit) : '—'}</span></div>
       <div class="r2">${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—')}</div>
       ${g ? `<div class="cnts">${[...g.by].map(([n, v]) => `<span>${esc(n)}: <b>${fmt(v)}</b></span>`).join('')}</div>` : ''}
       ${diff !== null ? `<div class="r3">Knjižno ${fmt(a.book_qty)} · razlika <span class="diff ${diff > 0 ? 'plus' : diff < 0 ? 'minus' : ''}">${diff > 0 ? '+' : ''}${fmt(diff)}</span></div>` : ''}
-      ${rv && rv.status === 'recounted' ? `<div class="r3"><span class="badge rcd">Ponovno prešteto${rv.by_name ? ' – ' + esc(rv.by_name) : ''}</span></div>` : ''}
+      ${redoIt ? `<div class="redonote">Količina je bila ponovno prešteta${rv.by_name ? ' (' + esc(nameNice(rv.by_name)) + ')' : ''} – vpišite novo količino v ERP</div>` : ''}
+      ${g && g.last ? `<div class="r3">Zadnja sprememba: ${fmtTime(g.last)}</div>` : ''}
       ${cat === 'rc' ? `<div class="rcnote">↺ Čaka ponovni pregled: ${esc(rv.target || 'vsi popisovalci')}${rv.note ? ' – ' + esc(rv.note) : ''}</div>` : ''}
       ${cat === 'done' ? `<div class="r3" style="color:var(--ok)">✓ Zaključil ${esc(rv.by_name || '')}</div>` : ''}
       <div class="vbtns">${btns}</div>
@@ -1272,11 +1336,11 @@ $('#vpItems').addEventListener('click', async e => {
   renderVpis();
 });
 // samodejna osvežitev, ko je vpisovalec na zaslonu Vpis
-setInterval(() => { if (curScreen === 'vpis' && !document.hidden && navigator.onLine && !document.querySelector('.modal')) loadVpis(false); }, 20000);
+setInterval(() => { if (S.role === 'vpis' && curScreen !== 'login' && !document.hidden && navigator.onLine && !document.querySelector('.modal')) loadVpis(false); }, 20000);
 
 /* ================= MOJ SEZNAM ================= */
 async function myEntries() {
-  return (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && e.counter === S.name)
+  return (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && sameName(e.counter, S.name))
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 async function renderList() {
@@ -1731,7 +1795,7 @@ window.addEventListener('offline', updateBadge);
 setInterval(() => sync(), CFG.SYNC_MS);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (curScreen === 'scan' || curScreen === 'item') stopScanner(); }
-  else { if (curScreen === 'scan' && CFG.CAMERA) startScanner(); sync(); }
+  else { if (curScreen === 'scan' && CFG.CAMERA) startScanner(); sync(); keepAwake(); }
 });
 
 /* ================= ZAGON ================= */
