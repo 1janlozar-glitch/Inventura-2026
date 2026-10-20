@@ -13,9 +13,10 @@ Aplikacija je ena spletna stran (GitHub Pages), podatki so v Supabase, AI branje
 PIN kasneje spremenite z ukazom v SQL Editorju:
 `update public.app_config set pin = 'NOVPIN' where id = 1;`
 
-## 1b. Posodobitev baze za povezovanje kod (če ste bazo nastavili pred 20. 10. 2026)
+## 1b. Posodobitev baze (če ste bazo nastavili pred 20. 10. 2026)
 
-V Supabase → **SQL Editor** → **New query** → prilepite vsebino `supabase/posodobitev-2.sql` → **Run**. PIN-a ne spreminjate.
+V Supabase → **SQL Editor** → **New query** → prilepite vsebino `supabase/posodobitev-4.sql` → **Run**. PIN-a ne spreminjate.
+Datoteka vsebuje vse posodobitve (povezane kode, brisanje popisnega lista, modul za vpisovalca) in jo je varno zagnati večkrat.
 
 ## 2. AI branje nalepk – enkrat, 5 minut
 
@@ -57,12 +58,21 @@ V Supabase → **SQL Editor** → **New query** → prilepite vsebino `supabase/
 - Zgoraj desno: **Naloženo** = vse je v bazi; **Čaka N** = naloži se samo, ko bo internet. Popis teče tudi brez interneta.
 - **AI nalepka** (gumb v kotu kamere): deluje le, če je nastavljen AI ključ.
 
+## Vpisovalec (vnos v ERP)
+
+- Ob prijavi izberite vlogo **Vpisovalec (vnašam v ERP)**. Odpre se zavihek **Vpis**.
+- Artikli so v **vrstnem redu popisnega lista** (zaporedna številka pred šifro). Pri vsakem artiklu so skupna količina in **imena popisovalcev s količinami**, ob knjižni zalogi tudi razlika.
+- **✓ Zaključi**: količina je v redu in vnesena v ERP. Artikel izgine s seznama *Za vpis*, popisovalci pa ga na popisnem listu vidijo s kljukico **✓ Pregledano**.
+- **Preglej še enkrat**: izberete popisovalca in napišete opombo. Popisovalec dobi obvestilo (oranžen trak na zaslonu Skeniraj in zavihek *Ponovno* na popisnem listu). Ko artikel znova prešteje in shrani, se vrne na seznam *Za vpis* z oznako **Ponovno prešteto**.
+- Zavihki: *Za vpis*, *Ponovno* (čaka popisovalca), *Zaključeni* (gumb *Vrni v vpis*, če ste se zmotili), *Nepopisani* (gumb *Prosi za popis*).
+- Seznam se osveži sam vsakih 20 sekund ali z gumbom **Osveži**.
+
 ## Za vodjo popisa
 
-- **Pregled** → **Naloži Excel**: popisni list (šifrant) iz ERP, Excel ali CSV. Po nalaganju je viden vsem na zavihku **Popisni list**.
-  Stolpci: *Šifra* (ERP, obvezno), *Kataloška številka* ali *Šifra proizvajalca* (priporočeno – potem skeniranje kode proizvajalca takoj najde ERP artikel), *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Stolpci se prepoznajo po naslovih: *Šifra/Koda*, *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Obvezna je le šifra.
+- **Pregled** → **Naloži popisni list (Excel)**: popisni list iz ERP, Excel ali CSV. Vrstni red vrstic v Excelu je vrstni red v aplikaciji. Po nalaganju je viden vsem na zavihku **Popisni list**.
+  Stolpci: *Šifra* (ERP, obvezno), *Art.nr*, *Kataloška številka* ali *Šifra proizvajalca* (priporočeno – potem skeniranje kode proizvajalca takoj najde ERP artikel), *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Stolpci se prepoznajo po naslovih: *Šifra/Koda*, *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Obvezna je le šifra.
 - **Pregled** → **Osveži**: vsi vnosi vseh popisovalcev; filter po popisovalcu.
-- **Izvozi vse**: Excel z zavihki *Po artiklih* (z razliko do knjižne zaloge), *Vnosi*, *Nepopisano* (artikli z zalogo, ki jih nihče ni popisal). Datoteka se shrani v mapo *Prenosi* ali pa jo pošljete naprej (e-pošta, WhatsApp, OneDrive).
+- **Izvozi vse**: Excel z zavihki *Po artiklih* (z razliko do knjižne zaloge), *Vnosi*, *Nepopisano* (artikli z zalogo, ki jih nihče ni popisal). Zavihek *Po artiklih* ima zaporedno številko in status (Zaključeno / Preglej še enkrat / Ponovno prešteto). Datoteka se shrani v mapo *Prenosi* ali pa jo pošljete naprej (e-pošta, WhatsApp, OneDrive).
 
 ## Težave
 
@@ -75,3 +85,8 @@ V Supabase → **SQL Editor** → **New query** → prilepite vsebino `supabase/
 | AI branje: »ANTHROPIC_API_KEY ni nastavljen« | Dodajte skrivnost v Edge Functions → Secrets. |
 | AI branje: napaka 400/402 | Na console.anthropic.com preverite dobroimetje. |
 | Oznaka »Napaka« zgoraj desno | Tapnite jo za opis napake; vnosi ostanejo na telefonu. |
+
+## Brisanje popisnega lista
+
+**Pregled → Izbriši** → izberite *Izbriši uvoženi popisni list* (artikli, vpisani med popisom, ostanejo) ali *Izbriši vse artikle in povezane kode* → vpišite **BRIŠI**.
+Seznam se izbriše v bazi in ob naslednji sinhronizaciji na vseh telefonih. **Popisane količine ostanejo.** Nov popisni list nato naložite z *Naloži popisni list (Excel)*.
