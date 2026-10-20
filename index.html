@@ -45,6 +45,7 @@ nav .nb{position:absolute;top:4px;left:calc(50% + 6px);min-width:20px;height:20p
 .redonote{color:var(--bad);font-weight:700;font-size:14px;margin-top:6px}
 @media (max-width:380px){.btn{font-size:16px;padding:0 12px}nav button{font-size:11px}nav button .ni{font-size:19px}h2{font-size:18px}}
 nav button.active{color:var(--accentText);font-weight:600;box-shadow:inset 0 2px 0 var(--accent)}
+button,select,input,textarea,a{touch-action:manipulation}
 button{font:inherit;cursor:pointer;color:inherit}
 .btn{min-height:56px;padding:0 18px;border-radius:12px;border:1px solid var(--strong);background:var(--card2);color:var(--text);font-size:17px;font-weight:600}
 .btn:active{filter:brightness(1.15)}
@@ -90,7 +91,9 @@ h2{font-size:20px;margin:4px 0 8px}
 .sugg:empty{display:none}
 .sugg .s{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text)}
 .sugg .s:active,.card.tap:active{border-color:var(--accent)}
-.sugg .s .r1{display:flex;justify-content:space-between;gap:10px}
+.sugg .s .r1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.sugg .s .r1 b{font-family:var(--mono);font-size:17px;font-weight:600;word-break:break-all}
+.sugg .s .r2{opacity:.75}
 .sugg .s .r2{font-size:14px;opacity:.85;margin-top:2px}
 .sugg .hint{font-size:13px;color:var(--muted)}
 #linkBox{background:rgba(255,159,90,.1);border:1px solid var(--warn);border-radius:12px;padding:10px 12px;font-size:15px}
@@ -129,6 +132,10 @@ h2{font-size:20px;margin:4px 0 8px}
 #itReview{font-size:14px;margin-top:6px;padding:8px 10px;border-radius:10px}
 #itReview.rc{background:rgba(255,159,90,.12);color:var(--warn)}
 #itReview.done{background:rgba(74,222,128,.12);color:var(--ok)}
+.itHead{position:sticky;top:0;z-index:5;background:var(--bg);margin:-16px -16px 10px;padding:12px 16px 10px;border-bottom:2px solid var(--accent)}
+.itHead .lbl{font-size:11.5px;font-weight:600;letter-spacing:.08em;color:var(--muted)}
+.itHead .codebig{font-size:30px;line-height:1.15;color:var(--text)}
+#itDesc{min-height:52px}
 #itOthers{font-size:14px;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(255,194,51,.12);border:1px solid rgba(255,194,51,.45);color:var(--text)}
 #itOthers b{font-weight:600}
 #itOthers .ol{font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:4px}
@@ -256,9 +263,11 @@ mark{background:rgba(255,194,51,.35);color:inherit;border-radius:3px;padding:0 1
   <!-- ARTIKEL IN KOLIČINA -->
   <section class="screen" id="item">
     <div class="pad">
-      <div class="muted" style="font-size:13px">Koda artikla</div>
-      <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
-      <div class="muted" id="itEan" style="font-size:13px"></div>
+      <div class="itHead">
+        <div class="lbl">ERP ŠIFRA ARTIKLA</div>
+        <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
+        <div class="muted" id="itEan" style="font-size:13px"></div>
+      </div>
       <div class="linknote hidden" id="itLink"></div>
       <div id="itReview" class="hidden"></div>
       <div id="itOthers" class="hidden"></div>
@@ -531,15 +540,23 @@ const DB = {
     });
   },
   get(s, k) { return this.req(s, 'readonly', st => st.get(k)); },
-  all(s) { return this.req(s, 'readonly', st => st.getAll()); },
-  put(s, v) { return this.req(s, 'readwrite', st => st.put(v)); },
-  del(s, k) { return this.req(s, 'readwrite', st => st.delete(k)); },
+  // vnosi se berejo iz pomnilnika; predpomnilnik se izprazni ob vsaki spremembi (hitrejše iskanje, seznami, značka)
+  inv(s) { if (s === 'entries') { this._ent = null; this._g = (this._g || 0) + 1; } },
+  all(s) {
+    if (s !== 'entries') return this.req(s, 'readonly', st => st.getAll());
+    if (this._ent) return Promise.resolve(this._ent);
+    const g = this._g || 0;
+    return this.req(s, 'readonly', st => st.getAll()).then(v => { if ((this._g || 0) === g) this._ent = v; return v; });
+  },
+  put(s, v) { this.inv(s); return this.req(s, 'readwrite', st => st.put(v)); },
+  del(s, k) { this.inv(s); return this.req(s, 'readwrite', st => st.delete(k)); },
   count(s) { return this.req(s, 'readonly', st => st.count()); },
   byEan(ean) { return this.req('articles', 'readonly', st => st.index('ean').get(ean)); },
   putMany(s, vals) {
+    this.inv(s);
     return new Promise((res, rej) => { const t = this.db.transaction(s, 'readwrite'); const st = t.objectStore(s); vals.forEach(v => st.put(v)); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
   },
-  clear(s) { return this.req(s, 'readwrite', st => st.clear()); },
+  clear(s) { this.inv(s); return this.req(s, 'readwrite', st => st.clear()); },
   kvGet(k) { return this.req('kv', 'readonly', st => st.get(k)); },
   kvSet(k, v) { return this.req('kv', 'readwrite', st => st.put(v, k)); }
 };
@@ -653,6 +670,7 @@ function startApp() {
   $('#ocrBtn').classList.toggle('hidden', !CFG.OCR);   // vpisovalec: Vpis, Popisni list, Pregled
   loadReviewsLocal().then(updateRcUI);
   OV.loaded = false; VP.loaded = false; updateHeader(); show(vp ? 'vpis' : 'scan'); updateBadge(); sync(); keepAwake();
+  setTimeout(() => { artIndex().catch(() => {}); myQtyMap().catch(() => {}); if (!vp) loadOthers().catch(() => {}); }, 400);   // vnaprej pripravi iskalnik
 }
 
 $('#whoBtn').onclick = async () => {
@@ -876,9 +894,13 @@ function hl(text, q) {
   }
   return t;
 }
+let _mq = { ent: null, key: '', map: null };
 async function myQtyMap() {
+  const es = await DB.all('entries'), key = S.popis + '|' + S.name;
+  if (_mq.ent === es && _mq.key === key) return _mq.map;     // brez ponovnega štetja ob vsaki črki
   const m = new Map();
-  (await myEntries()).forEach(e => m.set(e.code, round((m.get(e.code) || 0) + Number(e.quantity))));
+  es.forEach(e => { if (!e.deleted && e.popis === S.popis && sameName(e.counter, S.name)) m.set(e.code, round((m.get(e.code) || 0) + Number(e.quantity))); });
+  _mq = { ent: es, key, map: m };
   return m;
 }
 async function renderSugg(q) {
@@ -936,7 +958,7 @@ function startLink(raw, cand = []) {
   if (cand.length) renderSuggList(cand, raw, 'Artikli, ki vsebujejo to kodo:');
   else setTimeout(() => $('#codeIn').focus(), 50);
 }
-$('#codeIn').addEventListener('input', () => { S.method = 'rocno'; clearTimeout(pvT); pvT = setTimeout(() => lookupPreview($('#codeIn').value), 200); });
+$('#codeIn').addEventListener('input', () => { S.method = 'rocno'; clearTimeout(pvT); pvT = setTimeout(() => lookupPreview($('#codeIn').value), 110); });
 $('#codeIn').addEventListener('focus', () => { pauseScanner(); setCompact(true); });
 $('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#confirmBtn').click(); } });
 $('#confirmBtn').onclick = async () => {
@@ -1091,19 +1113,21 @@ async function openItem(code, ai) {
   if (![...$('#itUnit').options].some(o => o.value === unit)) $('#itUnit').insertAdjacentHTML('beforeend', `<option>${esc(unit)}</option>`);
   $('#itUnit').value = unit;
   $('#itQty').value = '';
-  const already = (await myQtyMap()).get(cur.code);
-  $('#itLoc').textContent = 'Popisovalec: ' + S.name + (already !== undefined ? ` · že popisano: ${fmt(already)} ${unit}` : '');
-  showOthers(cur.code);                                   // takoj iz shrambe
-  loadOthers().then(() => { if (cur && curScreen === 'item') showOthers(cur.code); }); // nato osveži v ozadju
-  await fillMfrList();
-  show('item');
-  setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 80);
+  $('#itLoc').textContent = 'Popisovalec: ' + S.name;
+  const codeNow = cur.code;
+  show('item');                                           // zaslon takoj, ostalo se dopolni v ozadju
+  $('#item').scrollTop = 0;
+  setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 40);
+  myQtyMap().then(m => { const already = m.get(codeNow); if (cur && cur.code === codeNow && already !== undefined) $('#itLoc').textContent = 'Popisovalec: ' + S.name + ` · že popisano: ${fmt(already)} ${unit}`; });
+  showOthers(codeNow);                                    // takoj iz shrambe
+  loadOthers().then(() => { if (cur && cur.code === codeNow && curScreen === 'item') showOthers(codeNow); }); // nato osveži v ozadju
+  fillMfrList();
 }
 // Obvestilo: artikel so že popisali drugi popisovalci (samo informacija)
 const OTH = { map: new Map(), ts: 0, popis: '', busy: null };
 async function loadOthers(force) {
   if (!navigator.onLine || !S.pin || !S.popis) return;
-  if (!force && OTH.popis === S.popis && Date.now() - OTH.ts < 30000) return;
+  if (!force && OTH.popis === S.popis && Date.now() - OTH.ts < 60000) return;
   if (OTH.busy) return OTH.busy;
   OTH.busy = (async () => {
     try {
@@ -1136,6 +1160,7 @@ document.querySelectorAll('.qtybtns .btn').forEach(b => b.onclick = () => {
   const n = (parseNum($('#itQty').value) || 0) + Number(b.dataset.add);
   $('#itQty').value = String(round(Math.max(0, n))).replace('.', ',');
 });
+$('#itQty').addEventListener('focus', e => setTimeout(() => e.target.select(), 0));
 $('#itQty').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#itSave').click(); } });
 function goBack() {
   resetScan(); show(returnTo);
@@ -1243,6 +1268,9 @@ $('#rcBanner').onclick = () => {
 async function pullReviews() {
   const prev = myRecountCodes().length;
   const r = (await rpc('get_reviews', { p_pin: S.pin, p_popis: S.popis })) || [];
+  const sig = JSON.stringify(r);
+  if (sig === REV_SIG) return;                       // brez sprememb: nič za shranjevati ali risati
+  REV_SIG = sig; UI_DIRTY = true;
   REV = new Map(r.map(x => [x.code, x])); await DB.kvSet('rev:' + S.popis, r);
   updateRcUI(prev);
 }
@@ -1778,7 +1806,7 @@ function exportXlsx(filename, sheets) {
 }
 
 /* ================= SINHRONIZACIJA ================= */
-let syncing = false, lastSyncErr = '';
+let syncing = false, lastSyncErr = '', UI_DIRTY = false, REV_SIG = '';
 async function pendingCount() {
   const es = await DB.all('entries'); return es.filter(e => !e.synced).length + (await DB.count('outbox_art')) + (await DB.count('outbox_alias')) + (((await DB.kvGet('revOut')) || []).length);
 }
@@ -1799,7 +1827,7 @@ async function pullArticles() {
     const rows = await rpc('get_articles', { p_pin: S.pin, p_since: ts || '-infinity', p_after_code: code }) || [];
     if (rows.length) {
       const local = rows.map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, sort_order: r.sort_order ?? null, updated_at: r.updated_at }));
-      await DB.putMany('articles', local); invalidateArts();
+      await DB.putMany('articles', local); invalidateArts(); UI_DIRTY = true;
       const lr = rows[rows.length - 1]; ts = lr.updated_at; code = lr.code; last = { ts: lr.updated_at, code: lr.code };
     }
     if (rows.length < 5000) break;
@@ -1812,7 +1840,7 @@ async function pullAliases() {
   for (let guard = 0; guard < 100; guard++) {
     const rows = await rpc('get_aliases', { p_pin: S.pin, p_since: ts || '-infinity', p_after: after }) || [];
     if (rows.length) {
-      await DB.putMany('aliases', rows.map(r => ({ alias: r.alias, raw: r.raw, code: r.code }))); invalidateArts();
+      await DB.putMany('aliases', rows.map(r => ({ alias: r.alias, raw: r.raw, code: r.code }))); invalidateArts(); UI_DIRTY = true;
       const lr = rows[rows.length - 1]; ts = lr.updated_at; after = lr.alias; last = { ts: lr.updated_at, alias: lr.alias };
     }
     if (rows.length < 5000) break;
@@ -1834,6 +1862,7 @@ async function _sync(manual) {
     try { await applyReset(await rpc('get_reset', { p_pin: S.pin, p_popis: S.popis })); }
     catch (e) { if (/Napačen PIN/.test(e.message)) throw e; }          // posodobitev-6 še ni zagnana
     const pend = (await DB.all('entries')).filter(e => !e.synced);
+    if (pend.length) UI_DIRTY = true;
     for (let i = 0; i < pend.length; i += 200) {
       const chunk = pend.slice(i, i + 200);
       await rpc('sync_entries', { p_pin: S.pin, p_entries: chunk.map(({ synced, ...rest }) => rest) });
@@ -1877,7 +1906,6 @@ async function _sync(manual) {
         q.shift(); await DB.kvSet('revOut', q);
       }
       await pullReviews();
-      if (curScreen === 'plist' && !$('#plSearch').matches(':focus')) renderPlist();
     } catch (e) { if (/Napačen PIN/.test(e.message)) throw e; } // posodobitev-4 še ni zagnana
     lastSyncErr = '';
     if (manual) toast('Vse naloženo', 'ok');
@@ -1886,13 +1914,15 @@ async function _sync(manual) {
     if (manual) toast(lastSyncErr, 'bad');
   } finally {
     syncing = false; updateBadge();
-    if (curScreen === 'list') renderList();
-    if (curScreen === 'plist' && !$('#plSearch').matches(':focus')) renderPlist();
+    if (UI_DIRTY) {                                   // seznami se osvežijo samo, če se je kaj spremenilo
+      if (curScreen === 'plist' && $('#plSearch').matches(':focus')) { /* med tipkanjem ne motimo – osvežimo pozneje */ }
+      else { UI_DIRTY = false; if (curScreen === 'list') renderList(); if (curScreen === 'plist') renderPlist(); }
+    }
   }
 }
 window.addEventListener('online', () => sync());
 window.addEventListener('offline', updateBadge);
-setInterval(() => sync(), CFG.SYNC_MS);
+setInterval(() => { if (!document.hidden) sync(); }, CFG.SYNC_MS);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (curScreen === 'scan' || curScreen === 'item') stopScanner(); }
   else { if (curScreen === 'scan' && CFG.CAMERA) startScanner(); sync(); keepAwake(); }

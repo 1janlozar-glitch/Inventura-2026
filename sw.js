@@ -1,5 +1,5 @@
 // Service worker – aplikacija deluje tudi brez interneta
-const CACHE = 'popis-v6';
+const CACHE = 'popis-v7';
 const ASSETS = [
   './',
   './index.html',
