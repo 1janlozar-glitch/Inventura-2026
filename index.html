@@ -27,7 +27,7 @@ main{flex:1;overflow:hidden;position:relative}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .screen.active{display:flex}
 nav{display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:var(--card)}
-nav button{flex:1;padding:14px 4px;background:none;border:0;color:var(--muted);font-size:15px;font-weight:600}
+nav button{flex:1;padding:14px 2px;background:none;border:0;color:var(--muted);font-size:14px;font-weight:600}
 nav button.active{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}
 button{font:inherit;cursor:pointer;color:inherit}
 .btn{min-height:56px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:17px;font-weight:600}
@@ -60,11 +60,27 @@ h2{font-size:20px;margin:4px 0 8px}
 #torchBtn{position:absolute;right:10px;top:10px;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.55);color:#fff;font-size:20px}
 #torchBtn.on{background:var(--warn);color:#000}
 .panel{padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px}
-.locbar{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 6px 6px 12px}
-.locbar .lbl{font-size:13px;color:var(--muted)}
-.locbar b{flex:1;font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#aiBtn{position:absolute;left:10px;top:10px;height:46px;padding:0 14px;border-radius:23px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.55);color:#fff;font-size:14px;font-weight:600}
+#camBar{display:none}
+#scan.compact #readerWrap{display:none}
+#scan.compact #camBar{display:block}
+.sugg{display:flex;flex-direction:column;gap:6px}
+.sugg:empty{display:none}
+.sugg .s{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text)}
+.sugg .s:active,.card.tap:active{border-color:var(--accent)}
+.sugg .s .r1{display:flex;justify-content:space-between;gap:10px}
+.sugg .s .r2{font-size:14px;opacity:.85;margin-top:2px}
+.sugg .hint{font-size:13px;color:var(--muted)}
+#linkBox{background:rgba(240,180,41,.1);border:1px solid var(--warn);border-radius:12px;padding:10px 12px;font-size:15px}
+#linkBox .row{margin-top:8px;gap:8px}
+#linkBox .btn{flex:1}
+.linknote{color:var(--warn);font-size:14px;margin-top:4px}
+mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1px}
+.cnt{font-size:13px;color:var(--ok);white-space:nowrap}
+.card.tap{cursor:pointer}
 .coderow{display:flex;gap:8px}
 .coderow input{font-size:22px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.coderow input::placeholder{text-transform:none;font-weight:500;font-size:18px}
 .coderow .btn{flex:none;min-width:104px}
 #preview{font-size:14px;min-height:20px}
 #preview .known{color:var(--ok)}#preview .new{color:var(--warn)}
@@ -148,19 +164,17 @@ h2{font-size:20px;margin:4px 0 8px}
       <div id="camMsg"></div>
       <div id="pausedHint" class="hidden">Tapnite sliko za novo skeniranje</div>
       <button id="torchBtn" title="Svetilka" aria-label="Svetilka">&#128294;</button>
+      <button id="aiBtn" title="Preberi nalepko z AI">AI nalepka</button>
     </div>
     <div class="panel">
-      <div class="locbar">
-        <span class="lbl">Lokacija</span>
-        <b id="locTxt">–</b>
-        <button class="btn small" id="locBtn">Zamenjaj</button>
-      </div>
+      <button class="btn" id="camBar">&#128247; Skeniraj s kamero</button>
+      <div id="linkBox" class="hidden"></div>
       <div class="coderow">
-        <input id="codeIn" placeholder="Koda artikla" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+        <input id="codeIn" placeholder="Koda ali opis artikla" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
         <button class="btn primary" id="confirmBtn">Potrdi</button>
       </div>
       <div id="preview"></div>
-      <button class="btn" id="aiBtn">Preberi z nalepke (AI)</button>
+      <div class="sugg" id="sugg"></div>
       <div class="last" id="lastList"></div>
     </div>
   </section>
@@ -171,6 +185,7 @@ h2{font-size:20px;margin:4px 0 8px}
       <div class="muted" style="font-size:13px">Koda artikla</div>
       <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
       <div class="muted" id="itEan" style="font-size:13px"></div>
+      <div class="linknote hidden" id="itLink"></div>
       <div class="muted" id="itBook" style="font-size:14px;margin-top:4px"></div>
 
       <label for="itMfr">Proizvajalec</label>
@@ -206,11 +221,25 @@ h2{font-size:20px;margin:4px 0 8px}
     </div>
   </section>
 
+  <!-- POPISNI LIST -->
+  <section class="screen" id="plist">
+    <div class="toolbar">
+      <input id="plSearch" placeholder="Išči šifro, opis ali proizvajalca" autocomplete="off" spellcheck="false" style="font-size:16px;padding:10px 12px">
+      <div class="tabs" id="plTabs">
+        <button data-f="all" class="active">Vsi</button>
+        <button data-f="todo">Nepopisani</button>
+        <button data-f="done">Popisani</button>
+      </div>
+      <div class="summary" id="plSummary"></div>
+    </div>
+    <div class="items" id="plItems"></div>
+  </section>
+
   <!-- MOJ SEZNAM -->
   <section class="screen" id="list">
     <div class="toolbar">
       <div class="row">
-        <input id="listSearch" class="grow" placeholder="Išči šifro, opis, lokacijo" style="font-size:16px;padding:10px 12px">
+        <input id="listSearch" class="grow" placeholder="Išči šifro ali opis" style="font-size:16px;padding:10px 12px">
         <button class="btn small" id="listExport">Izvozi</button>
       </div>
       <div class="summary" id="listSummary"></div>
@@ -224,9 +253,9 @@ h2{font-size:20px;margin:4px 0 8px}
       <div class="row">
         <button class="btn small primary grow" id="ovRefresh">Osveži</button>
         <button class="btn small" id="ovExport">Izvozi vse</button>
-        <button class="btn small" id="ovImport">Uvozi šifrant</button>
+        <button class="btn small" id="ovImport">Naloži Excel</button>
       </div>
-      <div class="tabs">
+      <div class="tabs" id="ovTabs">
         <button data-tab="art" class="active">Po artiklih</button>
         <button data-tab="vn">Vnosi</button>
       </div>
@@ -244,6 +273,7 @@ h2{font-size:20px;margin:4px 0 8px}
 
 <nav id="nav" class="hidden">
   <button data-go="scan" class="active">Skeniraj</button>
+  <button data-go="plist">Popisni list</button>
   <button data-go="list">Moj seznam</button>
   <button data-go="overview">Pregled</button>
 </nav>
@@ -322,13 +352,15 @@ const DB = {
   db: null,
   open() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open('popis-inventure', 1);
+      const r = indexedDB.open('popis-inventure', 2);
       r.onupgradeneeded = () => {
-        const d = r.result;
-        d.createObjectStore('entries', { keyPath: 'id' });
-        const a = d.createObjectStore('articles', { keyPath: 'code' }); a.createIndex('ean', 'ean', { unique: false });
-        d.createObjectStore('outbox_art', { keyPath: 'code' });
-        d.createObjectStore('kv');
+        const d = r.result, has = n => d.objectStoreNames.contains(n);
+        if (!has('entries')) d.createObjectStore('entries', { keyPath: 'id' });
+        if (!has('articles')) { const a = d.createObjectStore('articles', { keyPath: 'code' }); a.createIndex('ean', 'ean', { unique: false }); }
+        if (!has('outbox_art')) d.createObjectStore('outbox_art', { keyPath: 'code' });
+        if (!has('kv')) d.createObjectStore('kv');
+        if (!has('aliases')) d.createObjectStore('aliases', { keyPath: 'alias' });      // povezane kode → ERP šifra
+        if (!has('outbox_alias')) d.createObjectStore('outbox_alias', { keyPath: 'alias' });
       };
       r.onsuccess = () => { this.db = r.result; res(); };
       r.onerror = () => rej(r.error);
@@ -386,13 +418,13 @@ function show(id) {
   if (id === 'scan') { startScanner(); renderLast(); setTimeout(() => {}, 0); }
   else if (id !== 'item') stopScanner();
   if (id === 'list') renderList();
+  if (id === 'plist') renderPlist();
   if (id === 'overview' && !OV.loaded) loadOverview(true);
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.go));
 
 function updateHeader() {
   $('#whoBtn').innerHTML = `<b>${esc(S.name)}</b> · ${esc(S.popis)}`;
-  $('#locTxt').textContent = S.location || '– izberite –';
 }
 
 /* ================= PRIJAVA ================= */
@@ -435,15 +467,13 @@ $('#whoBtn').onclick = async () => {
   const pending = await pendingCount();
   const r = await modal({
     title: `${S.name} · ${S.popis}`,
-    body: `<p class="muted">Lokacija: ${esc(S.location || '–')}<br>Neposlanih sprememb: ${pending}</p>`,
+    body: `<p class="muted">Neposlanih sprememb: ${pending}</p>`,
     buttons: [
-      { label: 'Zamenjaj lokacijo', value: 'loc' },
       { label: 'Sinhroniziraj zdaj', value: 'sync' },
       { label: 'Zamenjaj popis ali popisovalca', value: 'out' },
       { label: 'Zapri', value: null }
     ]
   });
-  if (r.value === 'loc') askLocation();
   if (r.value === 'sync') { await sync(true); }
   if (r.value === 'out') {
     if (pending > 0) {
@@ -454,21 +484,6 @@ $('#whoBtn').onclick = async () => {
     await DB.kvSet('session', null); await stopScanner(); showLogin();
   }
 };
-
-/* ================= LOKACIJA ================= */
-async function setLocation(loc) { S.location = loc; await DB.kvSet('location', loc); updateHeader(); }
-async function askLocation() {
-  const r = await modal({
-    title: 'Lokacija',
-    body: `<p class="muted">Regal, polica ali prostor. Lokacijo lahko tudi skenirate s QR kodo oblike LOK:R1-P3.</p><input name="loc" value="${esc(S.location)}" placeholder="npr. R1-P3" autocapitalize="characters">`,
-    buttons: [{ label: 'Potrdi', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }]
-  });
-  if (!r.value) return false;
-  const loc = (r.vals.loc || '').trim().toUpperCase();
-  if (!loc) { toast('Lokacija je prazna', 'bad'); return false; }
-  await setLocation(loc); toast('Lokacija: ' + loc, 'ok'); return true;
-}
-$('#locBtn').onclick = askLocation;
 
 /* ================= KAMERA / SKENER ================= */
 let scanner = null, scanRunning = false, scanPaused = false, torchOn = false, lastScan = { text: '', t: 0 };
@@ -509,9 +524,20 @@ async function _stopScanner() {
 }
 function pauseScanner() { if (scanRunning && !scanPaused) { try { scanner.pause(true); scanPaused = true; setPausedUI(true); } catch {} } }
 function resumeScanner() { if (scanRunning && scanPaused) { try { scanner.resume(); scanPaused = false; setPausedUI(false); } catch {} } }
+// Kamera se po zajemu ali ob vpisu kode umakne, da sta vidna polje s kodo in predlogi
+function setCompact(on) { $('#scan').classList.toggle('compact', !!on); }
+function clearCode() {
+  $('#codeIn').value = ''; $('#preview').innerHTML = ''; $('#sugg').innerHTML = ''; S.aiData = null; S.method = 'rocno';
+  S.link = null; $('#linkBox').classList.add('hidden'); $('#codeIn').placeholder = 'Koda ali opis artikla';
+}
+function cameraAgain() {
+  clearCode(); setCompact(false); lastScan = { text: '', t: 0 };
+  if (scanRunning) resumeScanner(); else startScanner();
+}
+$('#camBar').onclick = cameraAgain;
 $('#readerWrap').addEventListener('click', e => {
-  if (e.target.id === 'torchBtn') return;
-  if (scanPaused) { $('#codeIn').value = ''; $('#preview').innerHTML = ''; S.aiData = null; resumeScanner(); }
+  if (e.target.closest('#torchBtn,#aiBtn')) return;
+  if (scanPaused) cameraAgain();
   else if (!scanRunning) startScanner();
 });
 $('#torchBtn').onclick = async e => {
@@ -527,37 +553,171 @@ $('#torchBtn').onclick = async e => {
 function onScan(text) {
   text = String(text || '').trim(); if (!text || curScreen !== 'scan') return;
   const t = Date.now(); if (text === lastScan.text && t - lastScan.t < 2500) return; lastScan = { text, t };
-  if (/^LOK:/i.test(text)) { const loc = text.slice(4).trim().toUpperCase(); if (loc) { setLocation(loc); beep(); vib(); toast('Lokacija: ' + loc, 'ok'); } return; }
   $('#codeIn').value = text; S.method = 'koda'; S.aiData = null;
-  beep(); vib(); pauseScanner(); lookupPreview(text);
+  beep(); vib(); pauseScanner(); setCompact(true); lookupPreview(text);
 }
 
 /* ================= ISKANJE ARTIKLA ================= */
+// Najde ERP artikel po šifri, EAN ali povezani kodi (kataloška številka, druga črtna koda)
 async function findArticle(code, alt) {
-  for (const c of [code, alt]) {
-    if (!c) continue;
+  for (const c0 of [code, alt]) {
+    if (!c0) continue;
+    const c = String(c0).trim();
     const a = await DB.get('articles', c); if (a) return a;
-    const b = await DB.byEan(c); if (b) return b;
-    const up = String(c).toUpperCase(); if (up !== c) { const u = await DB.get('articles', up); if (u) return u; }
+    const up = c.toUpperCase(); if (up !== c) { const u = await DB.get('articles', up); if (u) return u; }
+    // EAN: v Excelu se vodilne ničle pogosto izgubijo
+    const eans = /^\d{8,14}$/.test(c) ? [...new Set([c, c.replace(/^0+/, ''), c.padStart(13, '0'), c.padStart(14, '0')])] : [c];
+    for (const e of eans) { const b = await DB.byEan(e); if (b) return b; }
+    const al = await DB.get('aliases', skey(c)) || (/^\d+$/.test(c) ? await DB.get('aliases', c.replace(/^0+/, '')) : null);
+    if (al) { const x = await DB.get('articles', al.code); if (x) return x; }
   }
   return null;
 }
+// Artikli, katerih ERP šifra ali opis VSEBUJE skenirano kodo (npr. šifra SE-A9F74116, opis »… A9F74116«)
+async function findContaining(raw, limit = 30) {
+  let k = skey(raw); if (/^\d+$/.test(k)) k = k.replace(/^0+/, '') || k;
+  if (k.length < 4) return [];
+  const out = [];
+  for (const x of await artIndex()) {
+    if (x.ck.includes(k) || (k.length >= 5 && x.hk.includes(k))) { out.push(x.a); if (out.length >= limit) break; }
+  }
+  // najprej tisti, ki imajo kodo v šifri, nato po dolžini šifre
+  return out.sort((a, b) => (skey(b.code).includes(k) - skey(a.code).includes(k)) || a.code.length - b.code.length);
+}
+// Poveže skenirano kodo z ERP šifro (shrani na telefon in pošlje v skupno bazo)
+async function saveAlias(raw, code) {
+  const key = skey(raw); if (!key || key === skey(code)) return;
+  const rec = { alias: /^\d+$/.test(key) ? key.replace(/^0+/, '') || key : key, raw: String(raw), code, created_by: S.name };
+  await DB.put('aliases', rec);
+  await DB.put('outbox_alias', { ...rec, ts: Date.now() + Math.random() });
+  invalidateArts();
+}
+/* ---------- Pametni iskalnik (delni zadetki) ---------- */
+const skey = s => norm(s).replace(/ /g, '');
+let ART = null; // predpomnilnik šifranta za hitro iskanje
+function invalidateArts() { ART = null; }
+async function artIndex() {
+  if (!ART) {
+    const al = new Map();
+    (await DB.all('aliases')).forEach(x => { if (!al.has(x.code)) al.set(x.code, []); al.get(x.code).push(x.raw || x.alias); });
+    ART = (await DB.all('articles')).map(a => {
+      const alias = al.get(a.code) || [];
+      const txt = [a.code, a.ean, a.manufacturer, a.description, ...alias].filter(Boolean).join(' ');
+      return { a, ck: skey(a.code), ek: skey(a.ean), ak: alias.map(skey), hay: norm(txt), hk: skey(txt) };
+    }).sort((x, y) => x.a.code.localeCompare(y.a.code));
+  }
+  return ART;
+}
+function matchScore(x, qk, toks) {
+  if (x.ck === qk || (x.ek && x.ek === qk) || x.ak.includes(qk)) return 100;
+  if (x.ak.some(k => k.startsWith(qk))) return 85;
+  if (x.ck.startsWith(qk)) return 90 - Math.min(20, x.ck.length - qk.length) / 2;
+  if (x.ek && x.ek.startsWith(qk)) return 75;
+  if (x.ck.includes(qk)) return 65;
+  if (toks.length && toks.every(t => x.hay.includes(t))) return 50 + (x.hay.startsWith(toks[0]) ? 5 : 0);
+  if (qk.length >= 3 && x.hk.includes(qk)) return 40;
+  return 0;
+}
+async function searchArts(q, limit = 8) {
+  const qn = norm(q), qk = qn.replace(/ /g, ''), toks = qn.split(' ').filter(Boolean);
+  const list = await artIndex();
+  if (!qk) return list.slice(0, limit).map(x => x.a);
+  const out = [];
+  for (const x of list) { const s = matchScore(x, qk, toks); if (s) out.push([s, x.a]); }
+  out.sort((a, b) => b[0] - a[0] || a[1].code.localeCompare(b[1].code));
+  return out.slice(0, limit).map(r => r[1]);
+}
+// označi del besedila, ki se ujema z iskanjem
+function hl(text, q) {
+  text = String(text ?? ''); const t = esc(text); const qn = norm(q); if (!qn) return t;
+  const plain = text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  for (const tok of [qn.replace(/ /g, ''), ...qn.split(' ')].filter(x => x.length >= 2)) {
+    const i = plain.indexOf(tok);
+    if (i >= 0) return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + tok.length)) + '</mark>' + esc(text.slice(i + tok.length));
+  }
+  return t;
+}
+async function myQtyMap() {
+  const m = new Map();
+  (await myEntries()).forEach(e => m.set(e.code, round((m.get(e.code) || 0) + Number(e.quantity))));
+  return m;
+}
+async function renderSugg(q) {
+  q = (q || '').trim(); const box = $('#sugg');
+  if (q.length < (S.link ? 1 : 2)) { box.innerHTML = ''; return; }
+  const res = await searchArts(q, 8);
+  if ($('#codeIn').value.trim() !== q) return;
+  return renderSuggList(res, q);
+}
+async function renderSuggList(res, q, hint) {
+  const box = $('#sugg'), mine = await myQtyMap();
+  if (!res.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="hint">${esc(hint || 'Predlogi – tapnite artikel:')}</div>` + res.map(a => `
+    <button class="s" data-code="${esc(a.code)}">
+      <div class="r1"><b>${hl(a.code, q)}</b>${mine.has(a.code) ? `<span class="cnt">popisano ${fmt(mine.get(a.code))} ${esc(a.unit || '')}</span>` : ''}</div>
+      <div class="r2">${hl([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—', q)}</div>
+    </button>`).join('');
+}
+$('#sugg').addEventListener('click', e => {
+  const b = e.target.closest('.s'); if (!b) return;
+  S.method = 'izbira'; openItem(b.dataset.code, null);
+});
+
 let pvT;
 async function lookupPreview(code) {
-  code = (code || '').trim(); if (!code) { $('#preview').innerHTML = ''; return; }
+  code = (code || '').trim(); if (!code) { $('#preview').innerHTML = ''; $('#sugg').innerHTML = ''; return; }
   const a = await findArticle(code);
   if ($('#codeIn').value.trim() !== code) return;
+  if (S.method === 'koda') {
+    if (a) return openItem(code, null);                       // znan artikel: takoj na vnos količine
+    if ((await artIndex()).length) {
+      const cand = await findContaining(code);
+      if (cand.length === 1) { S.link = { raw: code, auto: true }; return openItem(cand[0].code, null); } // koda je v šifri/opisu enega artikla
+      return startLink(code, cand);                            // več možnosti ali nič: izbira in povezava
+    }
+  }
+  if (S.link) { $('#preview').innerHTML = ''; return renderSugg(code); }
   $('#preview').innerHTML = a
-    ? `<span class="known">Znan artikel:</span> ${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || a.code)}`
-    : `<span class="new">Nov artikel</span> – po potrditvi vpišete proizvajalca in opis`;
+    ? `<span class="known">Znan artikel:</span> ${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || a.code)} – tapnite Potrdi`
+    : `<span class="new">Ni točnega zadetka.</span> Izberite spodaj ali tapnite Potrdi za nov artikel.`;
+  if (a && !S.link) $('#sugg').innerHTML = ''; else renderSugg(code);
 }
-$('#codeIn').addEventListener('input', () => { S.method = 'rocno'; clearTimeout(pvT); pvT = setTimeout(() => lookupPreview($('#codeIn').value), 250); });
-$('#codeIn').addEventListener('focus', () => pauseScanner());
+// Način povezovanja: skenirana koda ni na popisnem listu → uporabnik poišče pravi ERP artikel
+function startLink(raw, cand = []) {
+  S.link = { raw };
+  $('#codeIn').value = ''; $('#preview').innerHTML = ''; $('#sugg').innerHTML = '';
+  $('#codeIn').placeholder = 'Išči drug artikel';
+  $('#linkBox').innerHTML = (cand.length
+      ? `Koda <b>${esc(raw)}</b> se pojavi pri <b>${cand.length}${cand.length >= 30 ? '+' : ''}</b> artiklih. Tapnite pravega – koda se bo trajno povezala z njim.`
+      : `Koda <b>${esc(raw)}</b> ni na popisnem listu.<br>Spodaj poiščite pravi artikel in ga tapnite – koda se bo trajno povezala z njim.`) + `
+    <div class="row"><button class="btn small" id="linkNew">Ni na seznamu – nov artikel</button><button class="btn small" id="linkCancel">Prekliči</button></div>`;
+  $('#linkBox').classList.remove('hidden');
+  $('#linkNew').onclick = () => { const r = S.link.raw; S.link = null; S.method = 'koda'; openItem(r, null); };
+  $('#linkCancel').onclick = () => cameraAgain();
+  if (cand.length) renderSuggList(cand, raw, 'Artikli, ki vsebujejo to kodo:');
+  else setTimeout(() => $('#codeIn').focus(), 50);
+}
+$('#codeIn').addEventListener('input', () => { S.method = 'rocno'; clearTimeout(pvT); pvT = setTimeout(() => lookupPreview($('#codeIn').value), 200); });
+$('#codeIn').addEventListener('focus', () => { pauseScanner(); setCompact(true); });
 $('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#confirmBtn').click(); } });
-$('#confirmBtn').onclick = () => openItem($('#codeIn').value, S.aiData);
+$('#confirmBtn').onclick = async () => {
+  if (S.link) {
+    const v = $('#codeIn').value.trim(); const a = v && await findArticle(v);
+    if (!a) return toast('Tapnite artikel s seznama predlogov ali »Ni na seznamu – nov artikel«', 'bad');
+    return openItem(a.code, null);
+  }
+  const v = $('#codeIn').value.trim();
+  if (v && S.method === 'rocno' && !(await findArticle(v)) && (await artIndex()).length) {
+    const cand = await findContaining(v);
+    if (cand.length === 1) { S.link = { raw: v, auto: true }; return openItem(cand[0].code, null); }
+    if (cand.length > 1) return startLink(v, cand);
+  }
+  openItem(v, S.aiData);
+};
 
 /* ================= AI BRANJE NALEPKE ================= */
-$('#aiBtn').onclick = async () => {
+$('#aiBtn').onclick = async e => {
+  e.stopPropagation();
   if (!navigator.onLine) return toast('AI branje potrebuje internet', 'bad');
   const v = document.querySelector('#reader video');
   if (!v || !v.videoWidth) return toast('Kamera ni pripravljena', 'bad');
@@ -577,7 +737,7 @@ $('#aiBtn').onclick = async () => {
     const code = d.code || d.ean;
     S.aiData = d; S.method = 'ai';
     if (!code) {
-      $('#codeIn').value = '';
+      setCompact(true); $('#codeIn').value = '';
       $('#preview').innerHTML = `<span class="new">Kode ni bilo mogoče prebrati.</span> ${esc([d.manufacturer, d.description].filter(Boolean).join(' – '))} Vpišite kodo in potrdite.`;
       $('#codeIn').focus(); return;
     }
@@ -587,14 +747,23 @@ $('#aiBtn').onclick = async () => {
 };
 
 /* ================= ARTIKEL IN KOLIČINA ================= */
+let returnTo = 'scan'; // kam se vrnemo po shranjevanju (Skeniraj ali Popisni list)
 async function openItem(code, ai) {
   code = (code || '').trim();
-  if (S.method === 'rocno') code = code.toUpperCase(); // ročno vpisane kode vedno z velikimi črkami
   if (!code) return toast('Skenirajte ali vpišite kodo', 'bad');
-  if (!S.location) { const ok = await askLocation(); if (!ok) return; }
-  const art = await findArticle(code, ai && ai.ean);
+  if (curScreen !== 'item') returnTo = curScreen === 'plist' ? 'plist' : 'scan';
+  let art = await findArticle(code, ai && ai.ean);
+  if (!art && S.method === 'rocno') code = code.toUpperCase(); // nove ročno vpisane kode z velikimi črkami
   const ean = art ? (art.ean || (isEan(code) ? code : (ai && ai.ean) || '')) : (isEan(code) ? code : ((ai && ai.ean) || ''));
   cur = { code: art ? art.code : (isEan(code) && ai && ai.code ? ai.code : code), ean, art, ai };
+  // povezava: skenirana koda (EAN/kataloška) + izbrani ERP artikel
+  cur.linkFrom = (S.link && art && skey(S.link.raw) !== skey(art.code)) ? S.link.raw : null;
+  if (!cur.linkFrom && art && ai && ai.code && skey(ai.code) !== skey(art.code)) cur.linkFrom = ai.code;
+  if (cur.linkFrom && isEan(cur.linkFrom) && !art.ean) cur.ean = cur.linkFrom;
+  $('#itLink').textContent = !cur.linkFrom ? '' : (S.link && S.link.auto
+    ? `Koda ${cur.linkFrom} je najdena v šifri ali opisu tega artikla. Preverite artikel – ob shranjevanju se koda poveže.`
+    : `Koda ${cur.linkFrom} bo povezana s šifro ${art.code}. Naslednjič jo aplikacija prepozna sama.`);
+  $('#itLink').classList.toggle('hidden', !cur.linkFrom);
   pauseScanner();
   $('#itCode').textContent = cur.code;
   $('#itBadges').innerHTML = (art ? '<span class="badge known">ZNAN</span>' : '<span class="badge new">NOV ARTIKEL</span>') + (ai ? '<span class="badge ai">AI</span>' : '');
@@ -606,7 +775,8 @@ async function openItem(code, ai) {
   if (![...$('#itUnit').options].some(o => o.value === unit)) $('#itUnit').insertAdjacentHTML('beforeend', `<option>${esc(unit)}</option>`);
   $('#itUnit').value = unit;
   $('#itQty').value = '';
-  $('#itLoc').textContent = 'Lokacija: ' + S.location + ' · popisovalec: ' + S.name;
+  const already = (await myQtyMap()).get(cur.code);
+  $('#itLoc').textContent = 'Popisovalec: ' + S.name + (already !== undefined ? ` · že popisano: ${fmt(already)} ${unit}` : '');
   await fillMfrList();
   show('item');
   setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 80);
@@ -616,7 +786,11 @@ document.querySelectorAll('.qtybtns .btn').forEach(b => b.onclick = () => {
   $('#itQty').value = String(round(Math.max(0, n))).replace('.', ',');
 });
 $('#itQty').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#itSave').click(); } });
-$('#itCancel').onclick = () => { resetScan(); show('scan'); };
+function goBack() {
+  resetScan(); show(returnTo);
+  if (returnTo === 'scan') setCompact(false);
+}
+$('#itCancel').onclick = goBack;
 
 async function fillMfrList() {
   const recent = (await DB.kvGet('mfrs')) || [];
@@ -635,13 +809,13 @@ $('#itSave').onclick = async () => {
   saving = true;
   try {
     const mfr = $('#itMfr').value.trim(), desc = $('#itDesc').value.trim(), unit = $('#itUnit').value;
-    const mine = (await DB.all('entries')).find(e => !e.deleted && e.popis === S.popis && e.counter === S.name && e.location === S.location && e.code === cur.code);
+    const mine = (await DB.all('entries')).find(e => !e.deleted && e.popis === S.popis && e.counter === S.name && (e.location || '') === (S.location || '') && e.code === cur.code);
     let finalQty = qty;
     if (mine) {
       const sum = round(Number(mine.quantity) + qty);
       const r = await modal({
-        title: 'Artikel je na tej lokaciji že popisan',
-        body: `<p><b>${esc(cur.code)}</b> na lokaciji ${esc(S.location)}: že vpisano <b>${fmt(mine.quantity)} ${esc(mine.unit || '')}</b>.</p><p>Nova količina: <b>${fmt(qty)}</b></p>`,
+        title: 'Artikel je že popisan',
+        body: `<p><b>${esc(cur.code)}</b>: že vpisano <b>${fmt(mine.quantity)} ${esc(mine.unit || '')}</b>.</p><p>Nova količina: <b>${fmt(qty)}</b></p>`,
         buttons: [{ label: `Prištej (skupaj ${fmt(sum)})`, value: 'add', cls: 'primary' }, { label: `Zamenjaj (${fmt(qty)})`, value: 'replace' }, { label: 'Prekliči', value: null }]
       });
       if (!r.value) return;
@@ -657,25 +831,61 @@ $('#itSave').onclick = async () => {
     if (!a || (mfr && mfr !== a.manufacturer) || (desc && desc !== a.description) || unit !== a.unit || (cur.ean && cur.ean !== a.ean)) {
       const na = { code: cur.code, ean: cur.ean || (a && a.ean) || null, manufacturer: mfr || (a && a.manufacturer) || null, description: desc || (a && a.description) || null,
         unit, book_qty: a ? a.book_qty : null, source: a ? a.source : 'popis', updated_at: a ? a.updated_at : null };
-      await DB.put('articles', na);
+      await DB.put('articles', na); invalidateArts();
       await DB.put('outbox_art', { code: na.code, ean: na.ean, manufacturer: na.manufacturer, description: na.description, unit: na.unit, source: 'popis', created_by: S.name, ts: Date.now() + Math.random() });
     }
+    if (cur.linkFrom) await saveAlias(cur.linkFrom, cur.code);
     if (mfr) await rememberMfr(mfr);
     toast(`Shranjeno: ${cur.code} × ${fmt(finalQty)} ${unit}`, 'ok'); vib(40);
-    resetScan(); show('scan'); updateBadge(); OV.loaded = false; sync();
+    goBack(); updateBadge(); OV.loaded = false; sync();
   } catch (e) { toast('Shranjevanje ni uspelo: ' + e.message, 'bad'); }
   finally { saving = false; }
 };
 function resetScan() {
-  cur = null; $('#codeIn').value = ''; $('#preview').innerHTML = ''; S.method = 'rocno'; S.aiData = null;
+  cur = null; clearCode();
   lastScan = { text: '', t: 0 }; resumeScanner();
 }
 async function renderLast() {
   const es = (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && e.counter === S.name)
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3);
   $('#lastList').innerHTML = es.length ? '<div class="muted" style="font-size:13px">Zadnji vnosi</div>' + es.map(e =>
-    `<div class="it"><span><b>${esc(e.code)}</b> ${esc(e.description || '')}</span><span>${fmt(e.quantity)} ${esc(e.unit || '')} · ${esc(e.location || '')}</span></div>`).join('') : '';
+    `<div class="it"><span><b>${esc(e.code)}</b> ${esc(e.description || '')}</span><span>${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>`).join('') : '';
 }
+
+/* ================= POPISNI LIST ================= */
+// Vsi artikli iz naloženega Excela (šifranta); popisovalec tapne artikel in vpiše količino
+const PL = { f: 'all' };
+let plT;
+async function renderPlist() {
+  const q = $('#plSearch').value.trim();
+  const [index, mine] = await Promise.all([artIndex(), myQtyMap()]);
+  if (!index.length) {
+    $('#plSummary').textContent = '';
+    $('#plItems').innerHTML = `<div class="empty">Popisni list še ni naložen.<br><br>Vodja popisa ga naloži na zavihku <b>Pregled → Naloži Excel</b>.<br>Do takrat lahko artikle skenirate ali vpisujete na zavihku Skeniraj.</div>`;
+    return;
+  }
+  let res = q ? await searchArts(q, index.length) : index.map(x => x.a);
+  if (PL.f === 'todo') res = res.filter(a => !mine.has(a.code));
+  else if (PL.f === 'done') res = res.filter(a => mine.has(a.code));
+  const doneCount = index.filter(x => mine.has(x.a.code)).length;
+  $('#plSummary').textContent = `${index.length} artiklov · popisali ste ${doneCount} · ostane ${index.length - doneCount}` + (q || PL.f !== 'all' ? ` · prikazanih ${res.length}` : '');
+  $('#plItems').innerHTML = res.length ? res.slice(0, 200).map(a => `
+    <div class="card tap" data-code="${esc(a.code)}">
+      <div class="r1"><b>${hl(a.code, q)}</b>${mine.has(a.code) ? `<span class="qty" style="color:var(--ok)">${fmt(mine.get(a.code))} ${esc(a.unit || '')}</span>` : `<span class="muted" style="font-size:14px">vpiši ›</span>`}</div>
+      <div class="r2">${hl([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—', q)}</div>
+      ${a.book_qty !== null && a.book_qty !== undefined ? `<div class="r3">Knjižna zaloga: ${fmt(a.book_qty)} ${esc(a.unit || '')}</div>` : ''}
+    </div>`).join('') + (res.length > 200 ? `<div class="empty">Prikazanih prvih 200 – vpišite del šifre ali opisa za iskanje.</div>` : '')
+    : `<div class="empty">Ni zadetkov.</div>`;
+}
+$('#plSearch').addEventListener('input', () => { clearTimeout(plT); plT = setTimeout(renderPlist, 200); });
+$('#plTabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  PL.f = b.dataset.f; $('#plTabs').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b)); renderPlist();
+});
+$('#plItems').addEventListener('click', e => {
+  const c = e.target.closest('.card'); if (!c) return;
+  S.method = 'izbira'; S.aiData = null; openItem(c.dataset.code, null);
+});
 
 /* ================= MOJ SEZNAM ================= */
 async function myEntries() {
@@ -693,7 +903,7 @@ async function renderList() {
     <div class="card" data-id="${esc(e.id)}">
       <div class="r1"><b>${esc(e.code)}</b><span class="qty">${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>
       <div class="r2">${esc([e.manufacturer, e.description].filter(Boolean).join(' – ') || '—')}</div>
-      <div class="r3"><span class="dot ${e.synced ? 'ok' : 'pend'}"></span>${esc(e.location || '')} · ${fmtTime(e.created_at)}</div>
+      <div class="r3"><span class="dot ${e.synced ? 'ok' : 'pend'}"></span>${esc([e.location, fmtTime(e.created_at)].filter(Boolean).join(' · '))}</div>
     </div>`).join('') + (es.length > 500 ? `<div class="empty">Prikazanih prvih 500 – uporabite iskanje.</div>` : '')
     : `<div class="empty">${all.length ? 'Ni zadetkov.' : 'Še ni vnosov. Začnite na zaslonu Skeniraj.'}</div>`;
 }
@@ -704,16 +914,15 @@ $('#listItems').addEventListener('click', async ev => {
   const r = await modal({
     title: e.code,
     body: `<p class="muted">${esc([e.manufacturer, e.description].filter(Boolean).join(' – '))}</p>
-      <label>Količina (${esc(e.unit || '')})</label><input name="qty" inputmode="decimal" value="${esc(String(e.quantity).replace('.', ','))}">
-      <label>Lokacija</label><input name="loc" value="${esc(e.location || '')}" autocapitalize="characters">`,
+      <label>Količina (${esc(e.unit || '')})</label><input name="qty" inputmode="decimal" value="${esc(String(e.quantity).replace('.', ','))}">`,
     buttons: [{ label: 'Shrani', value: 'save', cls: 'primary' }, { label: 'Izbriši vnos', value: 'del', cls: 'danger' }, { label: 'Prekliči', value: null }]
   });
   if (r.value === 'save') {
     const q = parseNum(r.vals.qty); if (q === null || q < 0) return toast('Neveljavna količina', 'bad');
-    Object.assign(e, { quantity: q, location: (r.vals.loc || '').trim().toUpperCase() || e.location, updated_at: nowIso(), synced: false });
+    Object.assign(e, { quantity: q, updated_at: nowIso(), synced: false });
     await DB.put('entries', e); toast('Popravljeno', 'ok');
   } else if (r.value === 'del') {
-    const c = await modal({ title: 'Izbrišem vnos?', body: `<p>${esc(e.code)} – ${fmt(e.quantity)} ${esc(e.unit || '')} na ${esc(e.location || '')}</p>`,
+    const c = await modal({ title: 'Izbrišem vnos?', body: `<p>${esc(e.code)} – ${fmt(e.quantity)} ${esc(e.unit || '')}</p>`,
       buttons: [{ label: 'Izbriši', value: true, cls: 'danger' }, { label: 'Prekliči', value: null }] });
     if (!c.value) return;
     Object.assign(e, { deleted: true, updated_at: nowIso(), synced: false }); await DB.put('entries', e); toast('Vnos izbrisan');
@@ -724,7 +933,7 @@ $('#listExport').onclick = async () => {
   const es = await myEntries(); if (!es.length) return toast('Seznam je prazen', 'bad');
   exportXlsx(`Popis ${S.popis} - ${S.name}.xlsx`, [['Vnosi', es.map(entryRow)]]);
 };
-const entryRow = e => ({ 'Popisovalec': e.counter, 'Lokacija': e.location, 'Šifra': e.code, 'EAN': e.ean || '', 'Proizvajalec': e.manufacturer || '',
+const entryRow = e => ({ 'Popisovalec': e.counter, 'Šifra': e.code, 'EAN': e.ean || '', 'Proizvajalec': e.manufacturer || '',
   'Opis': e.description || '', 'Količina': Number(e.quantity), 'Enota': e.unit || '', 'Način': e.method || '', 'Čas': fmtTime(e.created_at) });
 
 /* ================= PREGLED ================= */
@@ -740,6 +949,7 @@ async function loadOverview(silent) {
     const locs = [...new Set(OV.entries.map(e => e.location || ''))].sort();
     const keep = (sel, opts, first) => { const v = sel.value; sel.innerHTML = `<option value="">${first}</option>` + opts.map(o => `<option value="${esc(o)}">${esc(o || '(brez)')}</option>`).join(''); sel.value = opts.includes(v) ? v : ''; };
     keep($('#ovCounter'), counters, 'Vsi popisovalci'); keep($('#ovLoc'), locs, 'Vse lokacije');
+    const hasLoc = locs.some(Boolean); $('#ovLoc').classList.toggle('hidden', !hasLoc); $('#ovCounter').style.gridColumn = hasLoc ? '' : '1/3';
     await renderOverview();
   } catch (e) { toast('Nalaganje ni uspelo: ' + e.message, 'bad'); }
   finally { busy(false); }
@@ -747,7 +957,8 @@ async function loadOverview(silent) {
 async function articleMap() { const m = new Map(); (await DB.all('articles')).forEach(a => m.set(a.code, a)); return m; }
 function duplicates(entries) {
   const g = new Map();
-  entries.forEach(e => { const k = e.code + '|' + (e.location || ''); if (!g.has(k)) g.set(k, new Set()); g.get(k).add(e.counter); });
+  entries.forEach(e => { if (!e.location) return; // dvojno štetje se preverja le, kjer so vpisane lokacije
+    const k = e.code + '|' + (e.location || ''); if (!g.has(k)) g.set(k, new Set()); g.get(k).add(e.counter); });
   const d = new Set(); g.forEach((s, k) => { if (s.size > 1) d.add(k); }); return d;
 }
 function groupByArticle(entries, arts) {
@@ -778,7 +989,7 @@ async function renderOverview() {
       return `<div class="card ${isDup ? 'warn' : ''}">
         <div class="r1"><b>${esc(r.code)}</b><span class="qty">${fmt(r.qty)} ${esc(r.unit)}</span></div>
         <div class="r2">${esc([r.manufacturer, r.description].filter(Boolean).join(' – ') || '—')}</div>
-        <div class="r3">${r.book !== null ? `Knjižno ${fmt(r.book)} · razlika <span class="diff ${diff > 0 ? 'plus' : diff < 0 ? 'minus' : ''}">${diff > 0 ? '+' : ''}${fmt(diff)}</span> · ` : ''}${esc([...r.locs].join(', '))} · ${esc([...r.counters].join(', '))}${isDup ? ' · <span style="color:var(--warn)">dvojno štetje?</span>' : ''}</div>
+        <div class="r3">${r.book !== null ? `Knjižno ${fmt(r.book)} · razlika <span class="diff ${diff > 0 ? 'plus' : diff < 0 ? 'minus' : ''}">${diff > 0 ? '+' : ''}${fmt(diff)}</span> · ` : ''}${esc([[...r.locs].filter(Boolean).join(', '), [...r.counters].join(', ')].filter(Boolean).join(' · '))}${isDup ? ' · <span style="color:var(--warn)">dvojno štetje?</span>' : ''}</div>
       </div>`; }).join('');
     if (rows.length > 400) html += `<div class="empty">Prikazanih prvih 400 – uporabite iskanje ali izvoz.</div>`;
   } else {
@@ -788,7 +999,7 @@ async function renderOverview() {
       return `<div class="card ${isDup ? 'warn' : ''}">
         <div class="r1"><b>${esc(e.code)}</b><span class="qty">${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>
         <div class="r2">${esc([e.manufacturer, e.description].filter(Boolean).join(' – ') || '—')}</div>
-        <div class="r3">${esc(e.counter)} · ${esc(e.location || '')} · ${fmtTime(e.created_at)}${isDup ? ' · <span style="color:var(--warn)">dvojno štetje?</span>' : ''}</div>
+        <div class="r3">${esc([e.counter, e.location, fmtTime(e.created_at)].filter(Boolean).join(' · '))}${isDup ? ' · <span style="color:var(--warn)">dvojno štetje?</span>' : ''}</div>
       </div>`; }).join('');
     if (es.length > 400) html += `<div class="empty">Prikazanih prvih 400 – uporabite iskanje ali izvoz.</div>`;
   }
@@ -797,8 +1008,8 @@ async function renderOverview() {
 $('#ovRefresh').onclick = () => loadOverview(false);
 ['#ovCounter', '#ovLoc'].forEach(s => $(s).addEventListener('change', renderOverview));
 let ovT; $('#ovSearch').addEventListener('input', () => { clearTimeout(ovT); ovT = setTimeout(renderOverview, 200); });
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
-  OV.tab = b.dataset.tab; document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b)); renderOverview();
+document.querySelectorAll('#ovTabs button').forEach(b => b.onclick = () => {
+  OV.tab = b.dataset.tab; document.querySelectorAll('#ovTabs button').forEach(x => x.classList.toggle('active', x === b)); renderOverview();
 });
 $('#ovExport').onclick = async () => {
   if (!OV.loaded) await loadOverview(false);
@@ -808,7 +1019,7 @@ $('#ovExport').onclick = async () => {
   const counted = new Set(rows.map(r => r.code));
   const dup = duplicates(OV.entries);
   const byArt = rows.map(r => ({ 'Šifra': r.code, 'EAN': r.ean, 'Proizvajalec': r.manufacturer, 'Opis': r.description, 'Enota': r.unit, 'Popisano': r.qty,
-    'Knjižna zaloga': r.book === null ? '' : r.book, 'Razlika': r.book === null ? '' : round(r.qty - r.book), 'Lokacije': [...r.locs].join(', '), 'Popisovalci': [...r.counters].join(', ') }));
+    'Knjižna zaloga': r.book === null ? '' : r.book, 'Razlika': r.book === null ? '' : round(r.qty - r.book), 'Popisovalci': [...r.counters].join(', ') }));
   const notCounted = [...arts.values()].filter(a => !counted.has(a.code) && a.book_qty !== null && a.book_qty !== undefined && Number(a.book_qty) !== 0)
     .sort((a, b) => a.code.localeCompare(b.code))
     .map(a => ({ 'Šifra': a.code, 'EAN': a.ean || '', 'Proizvajalec': a.manufacturer || '', 'Opis': a.description || '', 'Enota': a.unit || '', 'Knjižna zaloga': Number(a.book_qty) }));
@@ -822,7 +1033,8 @@ $('#ovExport').onclick = async () => {
 /* ================= UVOZ ŠIFRANTA ================= */
 $('#ovImport').onclick = () => { if (!navigator.onLine) return toast('Uvoz potrebuje internet', 'bad'); $('#importFile').value = ''; $('#importFile').click(); };
 const COLS = {
-  code: ['sifra', 'sifra artikla', 'koda', 'koda artikla', 'code', 'artikel', 'kataloska stevilka', 'kat st', 'id artikla', 'art st', 'st artikla'],
+  code: ['sifra', 'sifra artikla', 'koda', 'koda artikla', 'code', 'id artikla', 'artikel', 'st artikla', 'art st'],
+  alias: ['kataloska stevilka', 'kat st', 'katalog', 'sifra proizvajalca', 'koda proizvajalca', 'sifra dobavitelja', 'dobaviteljeva sifra', 'art st dobavitelja', 'oznaka proizvajalca', 'referenca', 'ref'],
   ean: ['ean', 'ean koda', 'crtna koda', 'barcode', 'gtin'],
   manufacturer: ['proizvajalec', 'dobavitelj', 'manufacturer', 'znamka', 'brand', 'blagovna znamka'],
   description: ['opis', 'naziv', 'naziv artikla', 'description', 'ime', 'name', 'ime artikla'],
@@ -832,8 +1044,12 @@ const COLS = {
 function detectCols(headers) {
   const map = {}; const nh = headers.map(h => [h, norm(h)]);
   for (const [key, names] of Object.entries(COLS)) {
-    let hit = nh.find(([, n]) => names.includes(n)); if (!hit) hit = nh.find(([, n]) => names.some(x => n.startsWith(x)));
-    if (hit && !Object.values(map).includes(hit[0])) map[key] = hit[0];
+    const free = nh.filter(([h]) => !Object.values(map).includes(h));
+    let hit = null;
+    for (const nm of names) { hit = free.find(([, n]) => n === nm); if (hit) break; }               // točno ime, po prioriteti
+    if (!hit) for (const nm of names) { hit = free.find(([, n]) => n.startsWith(nm + ' ')); if (hit) break; }
+    if (!hit) for (const nm of names.filter(x => x.length >= 3)) { hit = free.find(([, n]) => n.startsWith(nm)); if (hit) break; }
+    if (hit) map[key] = hit[0];
   }
   return map;
 }
@@ -867,7 +1083,10 @@ $('#importFile').addEventListener('change', async ev => {
     manufacturer: map.manufacturer ? cellStr(r[map.manufacturer]) || null : null, description: map.description ? cellStr(r[map.description]) || null : null,
     unit: map.unit ? cellStr(r[map.unit]) || null : null, book_qty: map.book_qty ? parseNum(r[map.book_qty]) : null, source: 'uvoz', created_by: S.name
   })).filter(a => a.code);
-  const lbl = { code: 'šifra', ean: 'EAN', manufacturer: 'proizvajalec', description: 'opis', unit: 'enota', book_qty: 'knjižna zaloga' };
+  const aliases = map.alias ? rows.map(r => ({ raw: cellStr(r[map.alias]), code: cellStr(r[map.code]) }))
+    .filter(x => x.raw && x.code && skey(x.raw) !== skey(x.code))
+    .map(x => ({ alias: /^\d+$/.test(skey(x.raw)) ? skey(x.raw).replace(/^0+/, '') : skey(x.raw), raw: x.raw, code: x.code, created_by: S.name })) : [];
+  const lbl = { code: 'šifra (ERP)', alias: 'kataloška številka', ean: 'EAN', manufacturer: 'proizvajalec', description: 'opis', unit: 'enota', book_qty: 'knjižna zaloga' };
   const c = await modal({
     title: `Uvoz ${arts.length} artiklov`,
     body: `<p>Prepoznani stolpci:</p><p>${Object.entries(lbl).map(([k, l]) => `${l}: <b>${esc(map[k] || '— ni —')}</b>`).join('<br>')}</p><p class="muted">Obstoječi artikli se posodobijo, novi dodajo. Artikli, vpisani med popisom, ostanejo.</p>`,
@@ -879,9 +1098,15 @@ $('#importFile').addEventListener('change', async ev => {
       busy(true, `Nalagam ${Math.min(i + 1000, arts.length)} / ${arts.length} …`);
       await rpc('upsert_articles', { p_pin: S.pin, p_articles: arts.slice(i, i + 1000) });
     }
+    let aliasWarn = '';
+    for (let i = 0; i < aliases.length; i += 1000) {
+      busy(true, `Nalagam kataloške številke ${Math.min(i + 1000, aliases.length)} / ${aliases.length} …`);
+      try { await rpc('upsert_aliases', { p_pin: S.pin, p_aliases: aliases.slice(i, i + 1000) }); }
+      catch (e) { aliasWarn = ' Kataloške številke niso bile naložene – v Supabase zaženite posodobitev-2.sql.'; break; }
+    }
     busy(true, 'Prenašam šifrant na telefon …');
-    await pullArticles();
-    busy(false); toast(`Uvoženih ${arts.length} artiklov`, 'ok'); OV.loaded = false; loadOverview(true);
+    await pullArticles(); await pullAliases().catch(() => {});
+    invalidateArts(); busy(false); toast(`Naloženih ${arts.length} artiklov – vidni so na zavihku Popisni list.` + aliasWarn, aliasWarn ? 'bad' : 'ok'); OV.loaded = false; loadOverview(true);
   } catch (e) { busy(false); toast('Uvoz ni uspel: ' + e.message, 'bad'); }
 });
 
@@ -911,7 +1136,7 @@ function exportXlsx(filename, sheets) {
 /* ================= SINHRONIZACIJA ================= */
 let syncing = false, lastSyncErr = '';
 async function pendingCount() {
-  const es = await DB.all('entries'); return es.filter(e => !e.synced).length + (await DB.count('outbox_art'));
+  const es = await DB.all('entries'); return es.filter(e => !e.synced).length + (await DB.count('outbox_art')) + (await DB.count('outbox_alias'));
 }
 async function updateBadge() {
   const n = await pendingCount(); const b = $('#syncBadge');
@@ -930,13 +1155,27 @@ async function pullArticles() {
     const rows = await rpc('get_articles', { p_pin: S.pin, p_since: ts || '-infinity', p_after_code: code }) || [];
     if (rows.length) {
       const local = rows.map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, updated_at: r.updated_at }));
-      await DB.putMany('articles', local);
+      await DB.putMany('articles', local); invalidateArts();
       const lr = rows[rows.length - 1]; ts = lr.updated_at; code = lr.code; last = { ts: lr.updated_at, code: lr.code };
     }
     if (rows.length < 5000) break;
   }
   if (last && last.ts) await DB.kvSet('artSince', last);
 }
+async function pullAliases() {
+  const since = (await DB.kvGet('aliasSince')) || { ts: null, alias: '' };
+  let ts = since.ts ? new Date(new Date(since.ts).getTime() - 120000).toISOString() : null, after = '', last = since;
+  for (let guard = 0; guard < 100; guard++) {
+    const rows = await rpc('get_aliases', { p_pin: S.pin, p_since: ts || '-infinity', p_after: after }) || [];
+    if (rows.length) {
+      await DB.putMany('aliases', rows.map(r => ({ alias: r.alias, raw: r.raw, code: r.code }))); invalidateArts();
+      const lr = rows[rows.length - 1]; ts = lr.updated_at; after = lr.alias; last = { ts: lr.updated_at, alias: lr.alias };
+    }
+    if (rows.length < 5000) break;
+  }
+  if (last && last.ts) await DB.kvSet('aliasSince', last);
+}
+let aliasFnMissing = false;
 let syncPromise = null;
 function sync(manual) {
   if (syncPromise) return syncPromise.then(() => manual ? sync(true) : undefined);
@@ -964,6 +1203,19 @@ async function _sync(manual) {
       for (const a of chunk) { const now = await DB.get('outbox_art', a.code); if (now && now.ts === a.ts) await DB.del('outbox_art', a.code); }
     }
     await pullArticles();
+    // povezane kode (če posodobitev-2.sql še ni zagnana, se počaka – vnosi tečejo normalno)
+    try {
+      const ob = await DB.all('outbox_alias');
+      for (let i = 0; i < ob.length; i += 500) {
+        const chunk = ob.slice(i, i + 500);
+        await rpc('upsert_aliases', { p_pin: S.pin, p_aliases: chunk.map(({ ts, ...r }) => r) });
+        for (const a of chunk) { const now = await DB.get('outbox_alias', a.alias); if (now && now.ts === a.ts) await DB.del('outbox_alias', a.alias); }
+      }
+      await pullAliases(); aliasFnMissing = false;
+    } catch (e) {
+      if (/Napačen PIN/.test(e.message)) throw e;
+      if (!aliasFnMissing) { aliasFnMissing = true; console.warn('Povezane kode:', e.message); }
+    }
     lastSyncErr = '';
     if (manual) toast('Vse naloženo', 'ok');
   } catch (e) {
@@ -988,7 +1240,7 @@ document.addEventListener('visibilitychange', () => {
   catch (e) { document.body.innerHTML = '<div class="pad">Lokalna baza ni dostopna (zasebni način brskalnika?). Odprite aplikacijo v običajnem oknu.</div>'; return; }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  S.location = (await DB.kvGet('location')) || '';
+  S.location = ''; // lokacije se ne vpisujejo
   const sess = await DB.kvGet('session');
   if (sess && sess.name && sess.pin && sess.popis) { Object.assign(S, sess); startApp(); }
   else showLogin();

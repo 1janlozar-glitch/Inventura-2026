@@ -13,6 +13,10 @@ Aplikacija je ena spletna stran (GitHub Pages), podatki so v Supabase, AI branje
 PIN kasneje spremenite z ukazom v SQL Editorju:
 `update public.app_config set pin = 'NOVPIN' where id = 1;`
 
+## 1b. Posodobitev baze za povezovanje kod (če ste bazo nastavili pred 20. 10. 2026)
+
+V Supabase → **SQL Editor** → **New query** → prilepite vsebino `supabase/posodobitev-2.sql` → **Run**. PIN-a ne spreminjate.
+
 ## 2. AI branje nalepk – enkrat, 5 minut
 
 1. Na **console.anthropic.com** ustvarite API ključ (Settings → API Keys) in naložite dobroimetje (Billing).
@@ -40,20 +44,25 @@ PIN kasneje spremenite z ukazom v SQL Editorju:
 
 ## Navodila za ekipo (1 minuta)
 
-- **Lokacija**: zgoraj izberite ali skenirajte QR kodo police (oblika `LOK:R1-P3`). Velja, dokler je ne zamenjate.
-- **Skeniraj** črtno kodo → koda se vpiše v polje → **Potrdi**. Kodo lahko tudi pretipkate.
-- **Znan artikel**: vpišete le količino → **Shrani**.
+- **Skeniraj**: usmerite kamero na črtno kodo. Ko jo prebere, se kamera umakne, koda je v polju → **Potrdi**.
+- **Ni kode ali se ne prebere**: tapnite polje in vpišite del šifre ali opisa (npr. `f741` ali `odklop c16`). Spodaj se prikažejo predlogi – tapnite pravega.
+- **Znan artikel** (šifra, EAN ali povezana koda): takoj se odpre vnos količine → vpišete število → **Shrani**.
+- **Koda je del ERP šifre ali opisa** (npr. skenirate `A9F74116`, ERP šifra je `SE-A9F74116` ali je koda v opisu): če tak artikel obstaja le eden, se takoj odpre vnos količine; če jih je več, tapnete pravega.
+- **Koda ni na popisnem listu** (npr. EAN ali kataloška številka proizvajalca): vpišite del šifre ali opisa, tapnite pravi ERP artikel in vpišite količino. Koda se trajno poveže s tem artiklom – naslednjič jo prepozna vsak telefon. Gumb **Ni na seznamu – nov artikel** doda artikel, ki ga v ERP ni.
 - **Nov artikel**: vpišete proizvajalca, opis, enoto, količino → **Shrani**. Naslednjič ga prepozna vsak telefon.
-- **Ni kode / se ne prebere**: usmerite kamero na nalepko → **Preberi z nalepke (AI)** → preverite predlog → količina → **Shrani**.
-- Isti artikel na isti polici dvakrat: aplikacija vpraša **Prištej** ali **Zamenjaj**.
+- **📷 Skeniraj s kamero**: vrne kamero za naslednji artikel.
+- **Popisni list**: seznam vseh artiklov iz naloženega Excela. Tapnite artikel → vpišite količino. Filter *Nepopisani* pokaže, kaj še manjka.
+- Isti artikel dvakrat: aplikacija vpraša **Prištej** ali **Zamenjaj**.
 - **Moj seznam**: tap na vnos → popravek količine ali brisanje.
 - Zgoraj desno: **Naloženo** = vse je v bazi; **Čaka N** = naloži se samo, ko bo internet. Popis teče tudi brez interneta.
+- **AI nalepka** (gumb v kotu kamere): deluje le, če je nastavljen AI ključ.
 
 ## Za vodjo popisa
 
-- **Pregled** → **Uvozi šifrant**: Excel ali CSV iz ERP. Stolpci se prepoznajo po naslovih: *Šifra/Koda*, *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Obvezna je le šifra.
-- **Pregled** → **Osveži**: vsi vnosi vseh popisovalcev; filter po osebi in lokaciji; oranžno označeno = možno dvojno štetje.
-- **Izvozi vse**: Excel z zavihki *Po artiklih* (z razliko do knjižne zaloge), *Vnosi*, *Nepopisano* (artikli z zalogo, ki jih nihče ni popisal) in *Dvojno štetje*.
+- **Pregled** → **Naloži Excel**: popisni list (šifrant) iz ERP, Excel ali CSV. Po nalaganju je viden vsem na zavihku **Popisni list**.
+  Stolpci: *Šifra* (ERP, obvezno), *Kataloška številka* ali *Šifra proizvajalca* (priporočeno – potem skeniranje kode proizvajalca takoj najde ERP artikel), *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Stolpci se prepoznajo po naslovih: *Šifra/Koda*, *EAN*, *Proizvajalec*, *Opis/Naziv*, *Enota*, *Zaloga*. Obvezna je le šifra.
+- **Pregled** → **Osveži**: vsi vnosi vseh popisovalcev; filter po popisovalcu.
+- **Izvozi vse**: Excel z zavihki *Po artiklih* (z razliko do knjižne zaloge), *Vnosi*, *Nepopisano* (artikli z zalogo, ki jih nihče ni popisal). Datoteka se shrani v mapo *Prenosi* ali pa jo pošljete naprej (e-pošta, WhatsApp, OneDrive).
 
 ## Težave
 
