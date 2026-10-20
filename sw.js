@@ -1,5 +1,5 @@
 // Service worker – aplikacija deluje tudi brez interneta
-const CACHE = 'popis-v1';
+const CACHE = 'popis-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
   // Stran: najprej splet (da dobimo novo verzijo), sicer shranjena kopija
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(r => {
+      fetch(req, { cache: 'no-store' }).then(r => {   // vedno najnovejša verzija aplikacije
         if (r.ok && r.type === 'basic') { const copy = r.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); }
         return r;
       })

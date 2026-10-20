@@ -15,8 +15,11 @@ PIN kasneje spremenite z ukazom v SQL Editorju:
 
 ## 1b. Posodobitev baze (če ste bazo nastavili pred 20. 10. 2026)
 
-V Supabase → **SQL Editor** → **New query** → prilepite vsebino `supabase/posodobitev-4.sql` → **Run**. PIN-a ne spreminjate.
-Datoteka vsebuje vse posodobitve (povezane kode, brisanje popisnega lista, modul za vpisovalca) in jo je varno zagnati večkrat.
+V Supabase → **SQL Editor** → **New query** in po vrsti zaženite (**Run**):
+1. `supabase/posodobitev-4.sql` – povezane kode, brisanje popisnega lista, modul za vpisovalca (če je še niste).
+2. `supabase/posodobitev-5.sql` – **PIN vpisovalca**. Pred zagonom v vrstici `set vpis_pin = 'ZAMENJAJ_VPIS'` vpišite PIN vpisovalca (vsaj 8 znakov, drugačen od PIN-a ekipe).
+
+PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'NOVPIN' where id = 1;`
 
 ## 2. AI branje nalepk – enkrat, 5 minut
 
@@ -60,12 +63,12 @@ Datoteka vsebuje vse posodobitve (povezane kode, brisanje popisnega lista, modul
 
 ## Vpisovalec (vnos v ERP)
 
-- Ob prijavi izberite vlogo **Vpisovalec (vnašam v ERP)**. Odpre se zavihek **Vpis**.
-- Artikli so v **vrstnem redu popisnega lista** (zaporedna številka pred šifro). Pri vsakem artiklu so skupna količina in **imena popisovalcev s količinami**, ob knjižni zalogi tudi razlika.
-- **✓ Zaključi**: količina je v redu in vnesena v ERP. Artikel izgine s seznama *Za vpis*, popisovalci pa ga na popisnem listu vidijo s kljukico **✓ Pregledano**.
-- **Preglej še enkrat**: izberete popisovalca in napišete opombo. Popisovalec dobi obvestilo (oranžen trak na zaslonu Skeniraj in zavihek *Ponovno* na popisnem listu). Ko artikel znova prešteje in shrani, se vrne na seznam *Za vpis* z oznako **Ponovno prešteto**.
-- Zavihki: *Za vpis*, *Ponovno* (čaka popisovalca), *Zaključeni* (gumb *Vrni v vpis*, če ste se zmotili), *Nepopisani* (gumb *Prosi za popis*).
-- Seznam se osveži sam vsakih 20 sekund ali z gumbom **Osveži**.
+- Na prijavi tapnite velik gumb **Vpisovalec** in vpišite **PIN vpisovalca**. S PIN-om ekipe prijava kot vpisovalec ni mogoča.
+- Odpre se zavihek **Vpis**: artikli v vrstnem redu popisnega lista, s količino in imeni popisovalcev (npr. »Janez: 5«).
+- **✓ Zaključi** – količina je v redu. Artikel izgine s seznama, popisovalci ga na popisnem listu vidijo z zeleno kljukico.
+- **↺ Preglej še enkrat** – artikel gre nazaj popisovalcu, ki ga je štel (opomba ni obvezna). Ko ga ta znova prešteje, se vrne na *Za vpis* z oznako *Ponovno prešteto*.
+- Zavihki: **Za vpis**, **Ponovno** (čaka popisovalca), **Zaključeni** (gumb *Vrni v vpis*, če ste se zmotili).
+- Zaključiti in vračati artikle lahko samo vpisovalec.
 
 ## Za vodjo popisa
 
