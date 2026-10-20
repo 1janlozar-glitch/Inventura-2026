@@ -129,6 +129,9 @@ h2{font-size:20px;margin:4px 0 8px}
 #itReview{font-size:14px;margin-top:6px;padding:8px 10px;border-radius:10px}
 #itReview.rc{background:rgba(255,159,90,.12);color:var(--warn)}
 #itReview.done{background:rgba(74,222,128,.12);color:var(--ok)}
+#itOthers{font-size:14px;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(255,194,51,.12);border:1px solid rgba(255,194,51,.45);color:var(--text)}
+#itOthers b{font-weight:600}
+#itOthers .ol{font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:4px}
 mark{background:rgba(255,194,51,.35);color:inherit;border-radius:3px;padding:0 1px}
 .cnt{font-size:13px;color:var(--ok);white-space:nowrap}
 .card.tap{cursor:pointer}
@@ -252,6 +255,7 @@ mark{background:rgba(255,194,51,.35);color:inherit;border-radius:3px;padding:0 1
       <div class="muted" id="itEan" style="font-size:13px"></div>
       <div class="linknote hidden" id="itLink"></div>
       <div id="itReview" class="hidden"></div>
+      <div id="itOthers" class="hidden"></div>
       <div class="muted" id="itBook" style="font-size:14px;margin-top:4px"></div>
 
       <label for="itMfr">Proizvajalec</label>
@@ -1074,9 +1078,44 @@ async function openItem(code, ai) {
   $('#itQty').value = '';
   const already = (await myQtyMap()).get(cur.code);
   $('#itLoc').textContent = 'Popisovalec: ' + S.name + (already !== undefined ? ` · že popisano: ${fmt(already)} ${unit}` : '');
+  showOthers(cur.code);                                   // takoj iz shrambe
+  loadOthers().then(() => { if (cur && curScreen === 'item') showOthers(cur.code); }); // nato osveži v ozadju
   await fillMfrList();
   show('item');
   setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 80);
+}
+// Obvestilo: artikel so že popisali drugi popisovalci (samo informacija)
+const OTH = { map: new Map(), ts: 0, popis: '', busy: null };
+async function loadOthers(force) {
+  if (!navigator.onLine || !S.pin || !S.popis) return;
+  if (!force && OTH.popis === S.popis && Date.now() - OTH.ts < 30000) return;
+  if (OTH.busy) return OTH.busy;
+  OTH.busy = (async () => {
+    try {
+      const rows = (await rpc('get_entries', { p_pin: S.pin, p_popis: S.popis })) || [];
+      const m = new Map();
+      rows.forEach(e => {
+        if (e.deleted || sameName(e.counter, S.name)) return;
+        const k = skey(e.code); if (!m.has(k)) m.set(k, new Map());
+        const g = m.get(k), key = e.counter + '|' + (e.location || '');
+        const o = g.get(key) || { counter: e.counter, location: e.location || '', qty: 0, unit: e.unit || '' };
+        o.qty = round(o.qty + Number(e.quantity)); g.set(key, o);
+      });
+      OTH.map = m; OTH.ts = Date.now(); OTH.popis = S.popis;
+    } catch (err) { /* brez povezave – obvestilo se le ne pokaže */ }
+    finally { OTH.busy = null; }
+  })();
+  return OTH.busy;
+}
+function showOthers(code) {
+  const box = $('#itOthers');
+  const g = OTH.popis === S.popis ? OTH.map.get(skey(code)) : null;
+  if (!g || !g.size) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  const list = [...g.values()];
+  const names = [...new Set(list.map(o => o.counter))];
+  box.innerHTML = `<b>${esc(names.join(', '))}</b> ${names.length > 1 ? 'so ta artikel že popisali' : 'je ta artikel že popisal(a)'}:` +
+    list.map(o => `<div class="ol">${esc(o.counter)}: ${fmt(o.qty)} ${esc(o.unit)}${o.location ? ' · ' + esc(o.location) : ''}</div>`).join('');
+  box.classList.remove('hidden');
 }
 document.querySelectorAll('.qtybtns .btn').forEach(b => b.onclick = () => {
   const n = (parseNum($('#itQty').value) || 0) + Number(b.dataset.add);
