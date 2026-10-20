@@ -1,12 +1,12 @@
 // Service worker – aplikacija deluje tudi brez interneta
-const CACHE = 'popis-v4';
+const CACHE = 'popis-v6';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icon-192_1.png',
-  './icon-512_1.png',
-  './icon-180_1.png',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-180.png',
   'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
