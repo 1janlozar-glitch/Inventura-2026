@@ -48,18 +48,14 @@ PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'N
 
 ## Navodila za ekipo (1 minuta)
 
-- **Skeniraj**: usmerite kamero na črtno kodo. Ko jo prebere, se kamera umakne, koda je v polju → **Potrdi**.
-- **Ni kode ali se ne prebere**: tapnite polje in vpišite del šifre ali opisa (npr. `f741` ali `odklop c16`). Spodaj se prikažejo predlogi – tapnite pravega.
-- **Znan artikel** (šifra, EAN ali povezana koda): takoj se odpre vnos količine → vpišete število → **Shrani**.
-- **Koda je del ERP šifre ali opisa** (npr. skenirate `A9F74116`, ERP šifra je `SE-A9F74116` ali je koda v opisu): če tak artikel obstaja le eden, se takoj odpre vnos količine; če jih je več, tapnete pravega.
-- **Koda ni na popisnem listu** (npr. EAN ali kataloška številka proizvajalca): vpišite del šifre ali opisa, tapnite pravi ERP artikel in vpišite količino. Koda se trajno poveže s tem artiklom – naslednjič jo prepozna vsak telefon. Gumb **Ni na seznamu – nov artikel** doda artikel, ki ga v ERP ni.
-- **Nov artikel**: vpišete proizvajalca, opis, enoto, količino → **Shrani**. Naslednjič ga prepozna vsak telefon.
-- **📷 Skeniraj s kamero**: vrne kamero za naslednji artikel.
-- **Popisni list**: seznam vseh artiklov iz naloženega Excela. Tapnite artikel → vpišite količino. Filter *Nepopisani* pokaže, kaj še manjka.
+- **Išči**: vpišite šifro ali del opisa (npr. `lc1d18`, `kontaktor 9a`, `unica okvir beli`). Spodaj se sproti pokažejo artikli – tapnite pravega.
+- Vpišite **količino** → **Shrani**. Polje za iskanje je takoj pripravljeno za naslednji artikel.
+- Artikla ni na seznamu: vpišite njegovo kodo → **Potrdi** → izpolnite proizvajalca, opis, enoto, količino → **Shrani**.
+- **Popisni list**: vsi artikli v vrstnem redu iz Excela. Tapnite artikel → količina. Filter *Nepopisani* pokaže, kaj še manjka.
 - Isti artikel dvakrat: aplikacija vpraša **Prištej** ali **Zamenjaj**.
+- **Oranžen trak »Za ponovni pregled«**: vpisovalec prosi, da artikel preštejete znova. Tapnite trak → artikel → nova količina → **Zamenjaj**.
 - **Moj seznam**: tap na vnos → popravek količine ali brisanje.
 - Zgoraj desno: **Naloženo** = vse je v bazi; **Čaka N** = naloži se samo, ko bo internet. Popis teče tudi brez interneta.
-- **AI nalepka** (gumb v kotu kamere): deluje le, če je nastavljen AI ključ.
 
 ## Vpisovalec (vnos v ERP)
 

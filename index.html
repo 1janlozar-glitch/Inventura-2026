@@ -62,6 +62,7 @@ h2{font-size:20px;margin:4px 0 8px}
 .panel{padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px}
 #aiBtn{position:absolute;left:10px;top:10px;height:46px;padding:0 14px;border-radius:23px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.55);color:#fff;font-size:14px;font-weight:600}
 #camBar{display:none}
+.nocam #readerWrap,.nocam #camBar{display:none!important}   /* brez kamere: iskanje po šifri in opisu */
 #scan.compact #readerWrap{display:none}
 #scan.compact #camBar{display:block}
 .sugg{display:flex;flex-direction:column;gap:6px}
@@ -156,7 +157,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 @keyframes sp{to{transform:rotate(360deg)}}
 </style>
 </head>
-<body>
+<body class="nocam">
 
 <header id="hdr" class="hidden">
   <button class="who" id="whoBtn"></button>
@@ -197,7 +198,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
       <button class="btn" id="camBar">&#128247; Skeniraj s kamero</button>
       <div id="linkBox" class="hidden"></div>
       <div class="coderow">
-        <input id="codeIn" placeholder="Koda ali opis artikla" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+        <input id="codeIn" placeholder="Šifra ali del opisa" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
         <button class="btn primary" id="confirmBtn">Potrdi</button>
       </div>
       <div id="preview"></div>
@@ -321,7 +322,7 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 </main>
 
 <nav id="nav" class="hidden">
-  <button data-go="scan" class="active">Skeniraj</button>
+  <button data-go="scan" class="active">Išči</button>
   <button data-go="plist">Popisni list</button>
   <button data-go="vpis" id="navVpis" class="hidden">Vpis</button>
   <button data-go="list" id="navList">Moj seznam</button>
@@ -331,7 +332,6 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 <div id="toast"></div>
 <div id="busy" class="hidden"><div class="spin"></div><div id="busyTxt"></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 'use strict';
@@ -340,6 +340,7 @@ const CFG = {
   SUPABASE_URL: 'https://dsglxcggpkbwaouwnfzk.supabase.co',
   SUPABASE_KEY: 'sb_publishable_CtR-PKeCOrLiJ_-nVF8iEw_V5vXgo5C',
   AI_FUNCTION: 'read-label',
+  CAMERA: false,           // true = skeniranje črtnih kod s kamero; false = samo iskanje po šifri in opisu
   SYNC_MS: 15000
 };
 const DEFAULT_MFRS = ['Schneider Electric','Siemens','ABB','Rittal','ifm','SICK','Legrand','Hager','Eaton','Phoenix Contact','Weidmüller','WAGO','Finder','Omron','Gewiss','OBO Bettermann'];
@@ -467,7 +468,11 @@ function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.go === id));
   curScreen = id;
-  if (id === 'scan') { startScanner(); renderLast(); setTimeout(() => {}, 0); }
+  if (id === 'scan') {
+    renderLast();
+    if (CFG.CAMERA) startScanner();
+    else { setCompact(true); setTimeout(() => { if (curScreen === 'scan' && !document.querySelector('.modal')) $('#codeIn').focus(); }, 120); }
+  }
   else if (id !== 'item') stopScanner();
   if (id === 'list') renderList();
   if (id === 'plist') renderPlist();
@@ -605,7 +610,7 @@ function resumeScanner() { if (scanRunning && scanPaused) { try { scanner.resume
 function setCompact(on) { $('#scan').classList.toggle('compact', !!on); }
 function clearCode() {
   $('#codeIn').value = ''; $('#preview').innerHTML = ''; $('#sugg').innerHTML = ''; S.aiData = null; S.method = 'rocno';
-  S.link = null; $('#linkBox').classList.add('hidden'); $('#codeIn').placeholder = 'Koda ali opis artikla';
+  S.link = null; $('#linkBox').classList.add('hidden'); $('#codeIn').placeholder = 'Šifra ali del opisa';
 }
 function cameraAgain() {
   clearCode(); setCompact(false); lastScan = { text: '', t: 0 };
@@ -722,7 +727,7 @@ async function myQtyMap() {
 async function renderSugg(q) {
   q = (q || '').trim(); const box = $('#sugg');
   if (q.length < (S.link ? 1 : 2)) { box.innerHTML = ''; return; }
-  const res = await searchArts(q, 8);
+  const res = await searchArts(q, 15);
   if ($('#codeIn').value.trim() !== q) return;
   return renderSuggList(res, q);
 }
@@ -755,9 +760,9 @@ async function lookupPreview(code) {
   }
   if (S.link) { $('#preview').innerHTML = ''; return renderSugg(code); }
   $('#preview').innerHTML = a
-    ? `<span class="known">Znan artikel:</span> ${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || a.code)} – tapnite Potrdi`
-    : `<span class="new">Ni točnega zadetka.</span> Izberite spodaj ali tapnite Potrdi za nov artikel.`;
-  if (a && !S.link) $('#sugg').innerHTML = ''; else renderSugg(code);
+    ? `<span class="known">Točen zadetek:</span> ${esc(a.code)} – tapnite artikel ali Potrdi`
+    : `Tapnite artikel spodaj. Če ga ni, tapnite Potrdi za nov artikel.`;
+  renderSugg(code);
 }
 // Način povezovanja: skenirana koda ni na popisnem listu → uporabnik poišče pravi ERP artikel
 function startLink(raw, cand = []) {
@@ -827,7 +832,7 @@ $('#aiBtn').onclick = async e => {
 let returnTo = 'scan'; // kam se vrnemo po shranjevanju (Skeniraj ali Popisni list)
 async function openItem(code, ai) {
   code = (code || '').trim();
-  if (!code) return toast('Skenirajte ali vpišite kodo', 'bad');
+  if (!code) return toast('Vpišite šifro ali del opisa', 'bad');
   if (curScreen !== 'item') returnTo = curScreen === 'plist' ? 'plist' : 'scan';
   let art = await findArticle(code, ai && ai.ean);
   if (!art && S.method === 'rocno') code = code.toUpperCase(); // nove ročno vpisane kode z velikimi črkami
@@ -870,7 +875,7 @@ document.querySelectorAll('.qtybtns .btn').forEach(b => b.onclick = () => {
 $('#itQty').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#itSave').click(); } });
 function goBack() {
   resetScan(); show(returnTo);
-  if (returnTo === 'scan') setCompact(false);
+  if (returnTo === 'scan') setCompact(!CFG.CAMERA);
 }
 $('#itCancel').onclick = goBack;
 
@@ -998,7 +1003,7 @@ async function renderPlist() {
   const [index, mine] = await Promise.all([artIndex(), myQtyMap()]);
   if (!index.length) {
     $('#plSummary').textContent = '';
-    $('#plItems').innerHTML = `<div class="empty">Popisni list še ni naložen.<br><br>Vodja popisa ga naloži na zavihku <b>Pregled → Naloži Excel</b>.<br>Do takrat lahko artikle skenirate ali vpisujete na zavihku Skeniraj.</div>`;
+    $('#plItems').innerHTML = `<div class="empty">Popisni list še ni naložen.<br><br>Vodja popisa ga naloži na zavihku <b>Pregled → Naloži Excel</b>.<br>Do takrat lahko artikle iščete in vpisujete na zavihku Išči.</div>`;
     return;
   }
   let res = q ? await searchArts(q, index.length) : index.map(x => x.a);
@@ -1533,7 +1538,7 @@ window.addEventListener('offline', updateBadge);
 setInterval(() => sync(), CFG.SYNC_MS);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (curScreen === 'scan' || curScreen === 'item') stopScanner(); }
-  else { if (curScreen === 'scan') startScanner(); sync(); }
+  else { if (curScreen === 'scan' && CFG.CAMERA) startScanner(); sync(); }
 });
 
 /* ================= ZAGON ================= */
