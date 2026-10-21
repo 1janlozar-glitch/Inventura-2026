@@ -227,6 +227,7 @@ body.onItem nav{display:none}   /* med vnosom količine več prostora */
       <input id="lgPopis" list="popisList" autocomplete="off">
       <datalist id="popisList"></datalist>
       <button class="btn primary wide" id="lgBtn" style="margin-top:22px">Začni popis</button>
+      <div class="muted verLbl" style="text-align:center;font-size:12px;margin-top:18px"></div>
     </div>
   </section>
 
@@ -368,6 +369,7 @@ body.onItem nav{display:none}   /* med vnosom količine več prostora */
       <div class="summary" id="ovSummary">Tapnite »Osveži« za prikaz vseh popisanih artiklov.</div>
     </div>
     <div class="items" id="ovItems"></div>
+    <div class="muted verLbl" style="text-align:center;font-size:12px;padding:6px 0 18px"></div>
     <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.txt" class="hidden">
   </section>
 </main>
@@ -400,6 +402,7 @@ const CFG = {
   SUPABASE_KEY: 'sb_publishable_CtR-PKeCOrLiJ_-nVF8iEw_V5vXgo5C',
   AI_FUNCTION: 'read-label',
   CAMERA: false,           // true = skeniranje črtnih kod s kamero; false = samo iskanje po šifri in opisu
+  VERSION: '2026-10-21.1',  // številka verzije – pri vsaki posodobitvi se poveča
   OCR: true,               // »Slikaj nalepko«: prebere besedilo z nalepke (šifra, kataloška številka, opis) – brez črtnih kod
   SYNC_MS: 15000
 };
@@ -477,6 +480,7 @@ function toggleTheme() {
   applyTheme(t); try { localStorage.setItem('theme', t); } catch {}
 }
 initTheme();
+document.querySelectorAll('.verLbl').forEach(e => e.textContent = 'Verzija ' + CFG.VERSION);
 // Tipkovnica: aplikacija se skrči na vidni del zaslona, da zgornja vrstica (šifra, količina, Shrani) ostane vidna
 if (window.visualViewport) {
   const fitVV = () => {
@@ -649,7 +653,7 @@ $('#whoBtn').onclick = async () => {
   const pending = await pendingCount();
   const r = await modal({
     title: `${S.name} · ${S.popis}`,
-    body: `<p class="muted">Neposlanih sprememb: ${pending}</p>`,
+    body: `<p class="muted">Neposlanih sprememb: ${pending}<br>Verzija aplikacije: <b>${CFG.VERSION}</b></p>`,
     buttons: [
       { label: 'Sinhroniziraj zdaj', value: 'sync' },
       { label: 'Zamenjaj popis ali popisovalca', value: 'out' },
