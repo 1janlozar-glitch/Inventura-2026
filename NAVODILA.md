@@ -64,13 +64,18 @@ PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'N
 
 ## Vpisovalec (vnos v ERP)
 
-- Na prijavi tapnite velik gumb **Vpisovalec** in vpišite **PIN vpisovalca**. S PIN-om ekipe prijava kot vpisovalec ni mogoča.
-- Odpre se zavihek **Vpis**: artikli v vrstnem redu popisnega lista, s količino in imeni popisovalcev (npr. »Janez: 5«).
-- **✓ Zaključi** – količina je v redu. Artikel izgine s seznama, popisovalci ga na popisnem listu vidijo z zeleno kljukico.
-- **↺ Preglej še enkrat** – artikel gre nazaj popisovalcu, ki ga je štel (opomba ni obvezna). Ko ga ta znova prešteje, se vrne na *Za vpis* z oznako *Ponovno prešteto*.
-- Zavihki: **Za vpis**, **Ponovno** (čaka popisovalca), **Zaključeni** (gumb *Vrni v vpis*, če ste se zmotili).
-- Zaključiti in vračati artikle lahko samo vpisovalec.
-- **Rdeč števec** na zavihku *Vpis* pokaže, koliko artiklov čaka na vpis. Artikli z **rdečim !** so bili ponovno prešteti – v ERP vpišite novo količino. So vedno na vrhu seznama.
+Najprej v Supabase enkrat zaženite `supabase/posodobitev-7.sql` (ne spreminja PIN-ov).
+
+- Na prijavi tapnite **Vpisovalec** in vpišite **PIN vpisovalca**. Odpre se zavihek **Vpis**.
+- **Za vpis**: vsi odprti vnosi v vrstnem redu popisnega lista, s količino in imeni popisovalcev. Rdeč števec na zavihku pove, koliko jih čaka.
+- Ko želite vnašati v ERP, tapnite **✓ Zaključi odprte → Excel**:
+  - vsi odprti artikli gredo v **izvoz** z zaporedno številko (izvoz 1, 2, 3 …), datumom in vašim imenom;
+  - prenese se Excel *»Vnos v ERP – … – izvoz N (datum).xlsx«*;
+  - artikli se zaključijo, popisovalci vidijo kljukico. Nato v miru vnašate iz Excela.
+- **Izvozi**: seznam vseh izvozov. Pri vsakem **⬇ Excel** (enak izvoz lahko prenesete znova) in **Prikaži artikle**. Pri artiklu **↺ Preglej še enkrat**, če se vam količina zdi napačna.
+- **Ni podvajanja**: v naslednji izvoz pridejo samo novi vnosi in **popravki**. Popravek je artikel, ki se je po izvozu spremenil (ponovno štetje ali dodatni vnos). Označen je z rdečim **!** in v Excelu s stolpcema *Popravek* (prejšnja količina in izvoz) in *Razlika do prej*. **Pri popravku v ERP vpišite novo količino, ne prištevajte.**
+- **Ponovno**: artikli, ki čakajo, da jih popisovalec znova prešteje (*Prekliči zahtevo*, če ste se premislili).
+- Zaključevati lahko samo vpisovalec.
 
 ## Za vodjo popisa
 

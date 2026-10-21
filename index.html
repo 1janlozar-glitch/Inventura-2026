@@ -106,6 +106,14 @@ h2{font-size:20px;margin:4px 0 8px}
 #ocrCam .bar #ocrClose{flex:0 0 30%}
 #ocrMsg{position:absolute;left:5%;right:5%;top:64%;color:#fff;text-align:center;font-size:15px;text-shadow:0 1px 3px #000}
 #ocrRead{font-size:13px;color:var(--muted);word-break:break-word}
+.closebar{background:var(--card);border:2px solid var(--ok);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.closebar .btn{min-height:60px;font-size:18px}
+.closebar .muted{font-size:13.5px}
+.bitems{margin-top:10px;border-top:1px solid var(--line)}
+.bi{padding:8px 0;border-bottom:1px solid var(--line)}
+.bi .r1{display:flex;justify-content:space-between;gap:8px}
+.bi .r2{font-size:13.5px;opacity:.85}
+.bi .r3{font-size:13px;color:var(--muted);margin-top:2px;overflow:hidden}
 #rcBanner{display:block;width:100%;text-align:left;background:rgba(240,180,41,.12);border:1px solid var(--warn);color:var(--text);border-radius:12px;padding:12px 14px;font-weight:600}
 .card.rc{border-color:var(--warn);background:rgba(240,180,41,.07)}
 .card.ok{border-color:rgba(47,191,113,.5)}
@@ -1260,8 +1268,9 @@ $('#plItems').addEventListener('click', e => {
 
 /* ================= VPIS (modul za vpisovalca) ================= */
 // Artikli v vrstnem redu popisnega lista, s količinami po popisovalcih.
-// Vpisovalec: ✓ Zaključi (izgine s seznama, na popisnem listu kljukica) ali »Preglej še enkrat« (gre popisovalcu).
-const VP = { f: 'todo', entries: [], loaded: false, busy: false };
+// Vpisovalec z enim gumbom zaključi vse odprte vnose v IZVOZ (serija z zaporedno številko + Excel) in nato v miru vnaša v ERP.
+// Kar se po izvozu spremeni, pride v naslednji izvoz kot POPRAVEK (nič se ne podvoji).
+const VP = { f: 'todo', entries: [], batches: [], loaded: false, busy: false, open: null, noBatchFn: false };
 async function loadVpis(withSpinner) {
   if (VP.busy) return; VP.busy = true;
   if (!navigator.onLine) { VP.busy = false; toast('Vpis potrebuje internet', 'bad'); return renderVpis(); }
@@ -1270,6 +1279,8 @@ async function loadVpis(withSpinner) {
     await sync(); await sync();
     VP.entries = (await rpc('get_entries', { p_pin: S.pin, p_popis: S.popis })) || [];
     await pullReviews().catch(e => { if (!/Napačen PIN/.test(e.message)) toast('V Supabase zaženite posodobitev-4.sql', 'bad'); });
+    try { VP.batches = (await rpc('get_batches', { p_pin: S.pin, p_popis: S.popis })) || []; VP.noBatchFn = false; }
+    catch (e) { if (/Napačen PIN/.test(e.message)) throw e; VP.noBatchFn = true; VP.batches = []; }
     VP.loaded = true;
   } catch (e) { toast('Nalaganje ni uspelo: ' + e.message, 'bad'); }
   finally { busy(false); VP.busy = false; }
@@ -1291,7 +1302,10 @@ async function vpisRows() {
   });
   return rows;
 }
-const vpCat = r => r.rv && r.rv.status === 'done' ? 'done' : r.rv && r.rv.status === 'recount' ? 'rc' : r.g ? 'todo' : 'none';
+// po izvozu spremenjena količina (npr. kasnejši vnos) -> znova za vpis kot popravek
+const vpChanged = r => r.rv && r.rv.status === 'done' && r.rv.qty_done !== null && r.rv.qty_done !== undefined && r.g && round(r.g.qty) !== round(Number(r.rv.qty_done));
+const vpCat = r => r.rv && r.rv.status === 'recount' ? 'rc' : r.rv && r.rv.status === 'done' && !vpChanged(r) ? 'done' : r.g ? 'todo' : 'none';
+const vpIsFix = r => vpCat(r) === 'todo' && r.rv && r.rv.batch_no;            // popravek že izvoženega artikla
 // rdeč števec na zavihku Vpis: koliko artiklov čaka na vpis v ERP
 async function updateVpisBadge(rows) {
   if (S.role !== 'vpis') return;
@@ -1303,54 +1317,126 @@ async function renderVpis() {
   if (S.role === 'vpis') updateVpisBadge();
   if (curScreen !== 'vpis') return;
   let rows = await vpisRows();
-  // ponovno prešteti (spremenjena količina) na vrh
-  rows.sort((p, q) => ((q.rv && q.rv.status === 'recounted') - (p.rv && p.rv.status === 'recounted')));
+  rows.sort((p, q) => (vpIsFix(q) || (q.rv && q.rv.status === 'recounted')) - (vpIsFix(p) || (p.rv && p.rv.status === 'recounted')));   // popravki na vrh
   const counts = { todo: 0, rc: 0, done: 0, none: 0 }; rows.forEach(r => counts[vpCat(r)]++);
-  const redo = rows.filter(r => vpCat(r) === 'todo' && r.rv && r.rv.status === 'recounted').length;
+  const fixes = rows.filter(r => vpIsFix(r) || (vpCat(r) === 'todo' && r.rv && r.rv.status === 'recounted')).length;
   $('#vpTabs').querySelectorAll('button').forEach(b => {
-    const lbl = { todo: 'Za vpis', rc: 'Ponovno', done: 'Zaključeni' }[b.dataset.f];
-    b.textContent = `${b.dataset.f === 'todo' && redo ? '❗' : ''}${lbl} ${counts[b.dataset.f]}`; b.classList.toggle('active', b.dataset.f === VP.f);
+    const f = b.dataset.f;
+    b.textContent = f === 'todo' ? `${fixes ? '❗' : ''}Za vpis ${counts.todo}` : f === 'rc' ? `Ponovno ${counts.rc}` : `Izvozi ${VP.batches.length}`;
+    b.classList.toggle('active', f === VP.f);
   });
-  const q = $('#vpSearch').value.trim();
+  const q = $('#vpSearch').value.trim(), qk = skey(q);
+  if (VP.f === 'done') return renderBatches(rows, qk);
   rows = rows.filter(r => vpCat(r) === VP.f);
-  if (q) { const qk = skey(q); rows = rows.filter(r => skey([r.a.code, r.a.manufacturer, r.a.description, r.a.ean].join(' ')).includes(qk)); }
-  $('#vpSummary').textContent = !VP.loaded ? 'Tapnite Osveži.' :
-    `✓ Zaključi = vpisano v ERP · ↺ = nazaj popisovalcu · nepopisanih ${counts.none}`;
-  $('#vpItems').innerHTML = rows.length ? rows.slice(0, 150).map(r => {
+  if (q) rows = rows.filter(r => skey([r.a.code, r.a.manufacturer, r.a.description, r.a.ean].join(' ')).includes(qk));
+  const nextNo = (VP.batches[0] ? VP.batches[0].batch_no : 0) + 1;
+  $('#vpSummary').textContent = !VP.loaded ? 'Tapnite Osveži.' : VP.f === 'todo'
+    ? `Odprti vnosi za izvoz ${nextNo}. ↺ = nazaj popisovalcu · nepopisanih ${counts.none}` : 'Čakajo, da jih popisovalec znova prešteje.';
+  const head = VP.f === 'todo' && VP.loaded && counts.todo
+    ? `<div class="closebar"><button class="btn ok wide" id="vpClose">✓ Zaključi odprte (${counts.todo}) → Excel</button>
+        <div class="muted">Vsi spodnji artikli gredo v <b>izvoz ${nextNo}</b>. Nato jih v miru vnesete v ERP.${fixes ? ` <b style="color:var(--bad)">${fixes} popravkov</b> – v ERP vpišite novo količino (ne prištevajte).` : ''}</div></div>` : '';
+  $('#vpItems').innerHTML = head + (rows.length ? rows.slice(0, 150).map(r => {
     const { a, g, rv } = r, cat = vpCat(r), unit = (g && g.unit) || a.unit || '';
     const diff = g && a.book_qty !== null && a.book_qty !== undefined ? round(g.qty - Number(a.book_qty)) : null;
-    const btns = cat === 'todo' ? `<button class="btn warn" data-act="rc">↺ Preglej še enkrat</button><button class="btn ok" data-act="done">✓ Zaključi</button>`
-      : cat === 'rc' ? `<button class="btn ok" data-act="done">✓ Zaključi</button>`
-      : `<button class="btn" data-act="undo">Vrni v vpis</button>`;
-    const redoIt = cat === 'todo' && rv && rv.status === 'recounted';
-    return `<div class="card ${cat === 'rc' ? 'rc' : cat === 'done' ? 'ok' : ''} ${redoIt ? 'redo' : ''}" data-code="${esc(a.code)}">
+    const fix = vpIsFix(r), redoIt = cat === 'todo' && (fix || (rv && rv.status === 'recounted'));
+    const btns = cat === 'todo' ? `<button class="btn warn" data-act="rc">↺ Preglej še enkrat</button>`
+      : `<button class="btn" data-act="cancelrc">Prekliči zahtevo</button>`;
+    return `<div class="card ${cat === 'rc' ? 'rc' : ''} ${redoIt ? 'redo' : ''}" data-code="${esc(a.code)}">
       <div class="r1"><b>${redoIt ? '<span class="excl">!</span>' : ''}${r.pos !== '' ? `<span class="ord">${r.pos}.</span>` : ''}${esc(a.code)}</b><span class="qty">${g ? fmt(g.qty) + ' ' + esc(unit) : '—'}</span></div>
       <div class="r2">${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—')}</div>
       ${g ? `<div class="cnts">${[...g.by].map(([n, v]) => `<span>${esc(n)}: <b>${fmt(v)}</b></span>`).join('')}</div>` : ''}
       ${diff !== null ? `<div class="r3">Knjižno ${fmt(a.book_qty)} · razlika <span class="diff ${diff > 0 ? 'plus' : diff < 0 ? 'minus' : ''}">${diff > 0 ? '+' : ''}${fmt(diff)}</span></div>` : ''}
-      ${redoIt ? `<div class="redonote">Količina je bila ponovno prešteta${rv.by_name ? ' (' + esc(nameNice(rv.by_name)) + ')' : ''} – vpišite novo količino v ERP</div>` : ''}
+      ${fix ? `<div class="redonote">POPRAVEK: v izvozu ${rv.batch_no} je bilo ${fmt(rv.qty_done)} ${esc(unit)} → zdaj ${fmt(g.qty)} ${esc(unit)}. V ERP vpišite novo količino.</div>`
+        : redoIt ? `<div class="redonote">Količina je bila ponovno prešteta${rv.by_name ? ' (' + esc(nameNice(rv.by_name)) + ')' : ''}</div>` : ''}
       ${g && g.last ? `<div class="r3">Zadnja sprememba: ${fmtTime(g.last)}</div>` : ''}
       ${cat === 'rc' ? `<div class="rcnote">↺ Čaka ponovni pregled: ${esc(rv.target || 'vsi popisovalci')}${rv.note ? ' – ' + esc(rv.note) : ''}</div>` : ''}
-      ${cat === 'done' ? `<div class="r3" style="color:var(--ok)">✓ Zaključil ${esc(rv.by_name || '')}</div>` : ''}
       <div class="vbtns">${btns}</div>
     </div>`; }).join('') + (rows.length > 150 ? `<div class="empty">Prikazanih prvih 150 – uporabite iskanje.</div>` : '')
-    : `<div class="empty">${!VP.loaded ? '' : VP.f === 'todo' ? 'Ni artiklov za vpis. ✓' : 'Ni artiklov.'}</div>`;
+    : `<div class="empty">${!VP.loaded ? '' : VP.f === 'todo' ? 'Ni odprtih vnosov. ✓' : 'Ni artiklov v ponovnem pregledu.'}</div>`);
+  if (VP.noBatchFn && VP.f === 'todo' && counts.todo) $('#vpItems').insertAdjacentHTML('afterbegin', `<div class="empty" style="color:var(--bad)">Za izvoze v Supabase zaženite posodobitev-7.sql</div>`);
+}
+// Zavihek Izvozi: vsak izvoz posebej (številka, čas, kdo), z Excelom in artikli
+function renderBatches(rows, qk) {
+  const byCode = new Map(rows.map(r => [r.a.code, r]));
+  $('#vpSummary').textContent = VP.batches.length ? 'Vsak izvoz je ločen – v ERP ga vnesete enkrat. Excel lahko kadarkoli prenesete znova.' : '';
+  $('#vpItems').innerHTML = VP.batches.length ? VP.batches.map(b => {
+    const items = b.items || [], nFix = items.filter(i => i.prev_batch).length, open = VP.open === b.batch_no || !!qk;
+    const list = items.filter(i => !qk || skey([i.code, i.description, i.manufacturer].join(' ')).includes(qk));
+    if (qk && !list.length) return '';
+    return `<div class="card batch" data-batch="${b.batch_no}">
+      <div class="r1"><b>Izvoz ${b.batch_no}</b><span class="muted" style="font-size:14px">${fmtTime(b.created_at)}</span></div>
+      <div class="r2">${items.length} artiklov${nFix ? ` · <b style="color:var(--bad)">${nFix} popravkov</b>` : ''} · ${esc(nameNice(b.by_name || ''))}</div>
+      <div class="vbtns"><button class="btn primary" data-act="xls">⬇ Excel</button><button class="btn" data-act="toggle">${open ? 'Skrij artikle' : 'Prikaži artikle'}</button></div>
+      ${open ? `<div class="bitems">${list.map(i => {
+        const r = byCode.get(i.code), rv = r && r.rv, cat = r ? vpCat(r) : '';
+        const state = rv && rv.status === 'done' && rv.batch_no === b.batch_no && cat === 'done' ? 'ok'
+          : rv && rv.batch_no > b.batch_no && cat === 'done' ? 'later' : cat === 'rc' ? 'rc' : 'todo';
+        return `<div class="bi" data-code="${esc(i.code)}">
+          <div class="r1"><span>${i.sort_order ? `<span class="ord">${i.sort_order}.</span>` : ''}<b>${esc(i.code)}</b></span><span class="qty">${fmt(i.qty)} ${esc(i.unit || '')}</span></div>
+          <div class="r2">${esc(i.description || '')}${i.prev_batch ? ` <span style="color:var(--bad)">· popravek (prej ${fmt(i.prev_qty)} v izvozu ${i.prev_batch})</span>` : ''}</div>
+          <div class="r3">${state === 'ok' ? '<span style="color:var(--ok)">✓ v redu</span>' : state === 'later' ? `→ popravljeno v izvozu ${rv.batch_no}` : state === 'rc' ? '<span style="color:var(--warn)">↺ v ponovnem pregledu</span>' : '<span style="color:var(--bad)">! spremenjeno – čaka v Za vpis</span>'}
+            ${state === 'ok' ? `<button class="btn small warn" data-act="rc" style="float:right;min-height:34px">↺ Preglej še enkrat</button>` : ''}</div>
+        </div>`; }).join('')}</div>` : ''}
+    </div>`; }).join('') : `<div class="empty">${VP.loaded ? 'Še ni izvozov. Na zavihku Za vpis tapnite »Zaključi odprte vnose«.' : ''}</div>`;
+}
+function exportBatch(b) {
+  const rows = (b.items || []).map(i => ({
+    'Zap. št.': i.sort_order ?? '', 'Šifra': i.code, 'Naziv': i.description || '', 'Proizvajalec': i.manufacturer || '',
+    'Količina': Number(i.qty), 'Enota': i.unit || '', 'Popisovalci': i.counters || '',
+    'Popravek': i.prev_batch ? `DA – v izvozu ${i.prev_batch} je bilo ${fmt(i.prev_qty)}; vpišite novo količino` : '',
+    'Razlika do prej': i.prev_batch ? round(Number(i.qty) - Number(i.prev_qty)) : ''
+  }));
+  const d = new Date(b.created_at || Date.now()), ds = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}`;
+  exportXlsx(`Vnos v ERP - ${S.popis} - izvoz ${b.batch_no} (${ds}).xlsx`, [[`Izvoz ${b.batch_no}`, rows]]);
+}
+async function closeOpen() {
+  if (!navigator.onLine) return toast('Za izvoz potrebujete internet', 'bad');
+  if (VP.noBatchFn) return toast('Najprej v Supabase zaženite posodobitev-7.sql', 'bad');
+  busy(true, 'Pripravljam izvoz …');
+  VP.busy = false; await loadVpis(false);                                    // najnovejše stanje
+  const todo = (await vpisRows()).filter(r => vpCat(r) === 'todo');
+  busy(false);
+  if (!todo.length) return toast('Ni odprtih vnosov za izvoz');
+  const nextNo = (VP.batches[0] ? VP.batches[0].batch_no : 0) + 1, nFix = todo.filter(vpIsFix).length;
+  const m = await modal({
+    title: `Zaključi v izvoz ${nextNo}`,
+    body: `<p><b>${todo.length}</b> artiklov gre v <b>izvoz ${nextNo}</b>${nFix ? ` (od tega <b style="color:var(--bad)">${nFix} popravkov</b>)` : ''}. Prenese se Excel za vnos v ERP.</p>
+      <p class="muted">Artikli se zaključijo (popisovalci vidijo kljukico). Kar se kasneje spremeni, pride v naslednji izvoz kot popravek – nič se ne podvoji.</p>`,
+    buttons: [{ label: `✓ Zaključi in prenesi Excel`, value: true, cls: 'ok' }, { label: 'Prekliči', value: null }]
+  });
+  if (!m.value) return;
+  busy(true, 'Zaključujem …');
+  try {
+    const b = await rpc('close_batch', { p_pin: S.pin, p_popis: S.popis, p_by: S.name, p_codes: todo.map(r => r.a.code) });
+    busy(false);
+    if (!b || !b.batch_no) return toast('Ni novih vnosov za izvoz (morda jih je že zaključil drug vpisovalec)');
+    exportBatch(b);
+    toast(`Izvoz ${b.batch_no}: ${b.items.length} artiklov zaključenih ✓`, 'ok');
+    VP.open = b.batch_no; VP.f = 'done'; await loadVpis(false);
+  } catch (e) {
+    busy(false);
+    toast(/close_batch|function/i.test(e.message) ? 'Najprej v Supabase zaženite posodobitev-7.sql' : 'Izvoz ni uspel: ' + e.message, 'bad');
+  }
 }
 $('#vpRefresh').onclick = () => loadVpis(true);
 let vpT; $('#vpSearch').addEventListener('input', () => { clearTimeout(vpT); vpT = setTimeout(renderVpis, 200); });
 $('#vpTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; VP.f = b.dataset.f; renderVpis(); });
 $('#vpItems').addEventListener('click', async e => {
+  if (e.target.closest('#vpClose')) return closeOpen();
   const b = e.target.closest('[data-act]'); if (!b) return;
-  const code = b.closest('.card').dataset.code, act = b.dataset.act;
-  if (act === 'done') { await setReview(code, 'done'); toast(`${code} zaključen ✓`, 'ok'); }
-  else if (act === 'undo') { await setReview(code, null); toast(`${code} vrnjen v vpis`); }
-  else if (act === 'rc') {
+  const act = b.dataset.act, bc = b.closest('[data-batch]'), batch = bc && VP.batches.find(x => String(x.batch_no) === bc.dataset.batch);
+  if (act === 'xls' && batch) return exportBatch(batch);
+  if (act === 'toggle' && batch) { VP.open = VP.open === batch.batch_no ? null : batch.batch_no; return renderVpis(); }
+  const code = (b.closest('[data-code]') || {}).dataset?.code; if (!code) return;
+  if (act === 'cancelrc') {                                                   // nazaj v izvoz ali v Za vpis
+    const rv = REV.get(code); await setReview(code, rv && rv.batch_no ? 'done' : null); toast(`Zahteva za ${code} preklicana`);
+  } else if (act === 'rc') {
     const r = (await vpisRows()).find(x => x.a.code === code);
     const names = r && r.g ? [...r.g.by.keys()] : [];
     const m = await modal({
       title: `↺ Preglej še enkrat`,
       body: `<p><b>${esc(code)}</b> ${esc([r?.a.manufacturer, r?.a.description].filter(Boolean).join(' – '))}</p>
-        <p class="muted">Gre nazaj k: <b>${esc(names.join(', ') || 'vsem popisovalcem')}</b></p>
+        <p class="muted">Gre nazaj k: <b>${esc(names.join(', ') || 'vsem popisovalcem')}</b>. Ko ga znova preštejejo, pride v naslednji izvoz kot popravek.</p>
         <label>Opomba (ni obvezno)</label><textarea name="note" rows="2" placeholder="npr. količina se zdi prevelika"></textarea>`,
       buttons: [{ label: 'Pošlji popisovalcu', value: true, cls: 'primary' }, { label: 'Prekliči', value: null }]
     });
@@ -1360,7 +1446,7 @@ $('#vpItems').addEventListener('click', async e => {
   }
   renderVpis();
 });
-// samodejna osvežitev, ko je vpisovalec na zaslonu Vpis
+// samodejna osvežitev (tudi števec na zavihku Vpis)
 setInterval(() => { if (S.role === 'vpis' && curScreen !== 'login' && !document.hidden && navigator.onLine && !document.querySelector('.modal')) loadVpis(false); }, 20000);
 
 /* ================= MOJ SEZNAM ================= */
@@ -1496,7 +1582,7 @@ $('#ovExport').onclick = async () => {
   const dup = duplicates(OV.entries);
   const ord = new Map((await artIndex()).map((x, i) => [x.a.code, x.a.sort_order ?? i + 1]));
   rows.sort((a, b) => (ord.get(a.code) ?? 1e9) - (ord.get(b.code) ?? 1e9) || a.code.localeCompare(b.code));
-  const byArt = rows.map(r => ({ 'Zap. št.': ord.get(r.code) ?? '', 'Status': RV_TXT[(REV.get(r.code) || {}).status] || '', 'Šifra': r.code, 'EAN': r.ean, 'Proizvajalec': r.manufacturer, 'Opis': r.description, 'Enota': r.unit, 'Popisano': r.qty,
+  const byArt = rows.map(r => ({ 'Zap. št.': ord.get(r.code) ?? '', 'Status': (rv => rv ? (rv.status === 'done' && rv.batch_no ? 'Izvoz ' + rv.batch_no : RV_TXT[rv.status] || '') : '')(REV.get(r.code)), 'Šifra': r.code, 'EAN': r.ean, 'Proizvajalec': r.manufacturer, 'Opis': r.description, 'Enota': r.unit, 'Popisano': r.qty,
     'Knjižna zaloga': r.book === null ? '' : r.book, 'Razlika': r.book === null ? '' : round(r.qty - r.book), 'Popisovalci': [...r.counters].join(', ') }));
   const notCounted = [...arts.values()].filter(a => !counted.has(a.code) && a.book_qty !== null && a.book_qty !== undefined && Number(a.book_qty) !== 0)
     .sort((a, b) => a.code.localeCompare(b.code))
