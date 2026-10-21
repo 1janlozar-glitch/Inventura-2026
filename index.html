@@ -392,7 +392,6 @@ body.onItem nav{display:none}   /* med vnosom količine več prostora */
 <div id="toast"></div>
 <div id="busy" class="hidden"><div class="spin"></div><div id="busyTxt"></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 <script>
 'use strict';
@@ -402,7 +401,7 @@ const CFG = {
   SUPABASE_KEY: 'sb_publishable_CtR-PKeCOrLiJ_-nVF8iEw_V5vXgo5C',
   AI_FUNCTION: 'read-label',
   CAMERA: false,           // true = skeniranje črtnih kod s kamero; false = samo iskanje po šifri in opisu
-  VERSION: '2026-10-21.1',  // številka verzije – pri vsaki posodobitvi se poveča
+  VERSION: '2026-10-21.2',  // številka verzije – pri vsaki posodobitvi se poveča
   OCR: true,               // »Slikaj nalepko«: prebere besedilo z nalepke (šifra, kataloška številka, opis) – brez črtnih kod
   SYNC_MS: 15000
 };
@@ -1212,11 +1211,16 @@ $('#rcBanner').onclick = () => {
   PL.f = 'rc'; $('#plTabs').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.f === 'rc'));
   show('plist');
 };
-async function pullReviews() {
+let revSig = '';
+async function applyReviews(r) {
+  const sig = r.map(x => x.code + ':' + x.status + ':' + (x.batch_no || '') + ':' + (x.updated_at || '')).sort().join('|');
+  if (sig === revSig) return false;                                     // nič novega -> nič ne izrisujemo
   const prev = myRecountCodes().length;
-  const r = (await rpc('get_reviews', { p_pin: S.pin, p_popis: S.popis })) || [];
-  REV = new Map(r.map(x => [x.code, x])); await DB.kvSet('rev:' + S.popis, r);
-  updateRcUI(prev);
+  revSig = sig; REV = new Map(r.map(x => [x.code, x])); await DB.kvSet('rev:' + S.popis, r);
+  updateRcUI(prev); return true;
+}
+async function pullReviews() {
+  return applyReviews((await rpc('get_reviews', { p_pin: S.pin, p_popis: S.popis })) || []);
 }
 // Nastavi status artikla (optimistično; brez interneta se pošlje ob naslednji sinhronizaciji)
 async function setReview(code, status, note, target) {
@@ -1288,21 +1292,23 @@ $('#plItems').addEventListener('click', e => {
 // Artikli v vrstnem redu popisnega lista, s količinami po popisovalcih.
 // Vpisovalec z enim gumbom zaključi vse odprte vnose v IZVOZ (serija z zaporedno številko + Excel) in nato v miru vnaša v ERP.
 // Kar se po izvozu spremeni, pride v naslednji izvoz kot POPRAVEK (nič se ne podvoji).
-const VP = { f: 'todo', entries: [], batches: [], loaded: false, busy: false, open: null, noBatchFn: false };
+const VP = { f: 'todo', entries: [], batches: [], loaded: false, busy: false, open: null, noBatchFn: false, sig: '', limit: 60 };
 async function loadVpis(withSpinner) {
   if (VP.busy) return; VP.busy = true;
   if (!navigator.onLine) { VP.busy = false; toast('Vpis potrebuje internet', 'bad'); return renderVpis(); }
   if (withSpinner) busy(true, 'Nalagam popis …');
   try {
-    await sync(); await sync();
+    await sync();
     VP.entries = (await rpc('get_entries', { p_pin: S.pin, p_popis: S.popis })) || [];
-    await pullReviews().catch(e => { if (!/Napačen PIN/.test(e.message)) toast('V Supabase zaženite posodobitev-4.sql', 'bad'); });
     try { VP.batches = (await rpc('get_batches', { p_pin: S.pin, p_popis: S.popis })) || []; VP.noBatchFn = false; }
     catch (e) { if (/Napačen PIN/.test(e.message)) throw e; VP.noBatchFn = true; VP.batches = []; }
     VP.loaded = true;
   } catch (e) { toast('Nalaganje ni uspelo: ' + e.message, 'bad'); }
   finally { busy(false); VP.busy = false; }
-  renderVpis();
+  // brez sprememb -> brez ponovnega izrisa (prej vsakih 20 s, ~0,7 s na počasnem telefonu)
+  const sig = [VP.entries.length, VP.entries.reduce((m, e) => (e.updated_at || '') > m ? e.updated_at : m, ''), revSig, VP.batches.length].join('#');
+  if (!withSpinner && sig === VP.sig && curScreen === 'vpis') return;
+  VP.sig = sig; renderVpis();
 }
 async function vpisRows() {
   const idx = await artIndex();
@@ -1356,7 +1362,7 @@ async function renderVpis() {
   const head = VP.f === 'todo' && VP.loaded && counts.todo
     ? `<div class="closebar"><button class="btn ok wide" id="vpClose">✓ Zaključi odprte (${counts.todo}) → Excel</button>
         <div class="muted">Vsi spodnji artikli gredo v <b>izvoz ${nextNo}</b>. Nato jih v miru vnesete v ERP.${fixes ? ` <b style="color:var(--bad)">${fixes} popravkov</b> – v ERP vpišite novo količino (ne prištevajte).` : ''}</div></div>` : '';
-  $('#vpItems').innerHTML = head + (rows.length ? rows.slice(0, 150).map(r => {
+  $('#vpItems').innerHTML = head + (rows.length ? rows.slice(0, VP.limit).map(r => {
     const { a, g, rv } = r, cat = vpCat(r), unit = (g && g.unit) || a.unit || '';
     const diff = g && a.book_qty !== null && a.book_qty !== undefined ? round(g.qty - Number(a.book_qty)) : null;
     const fix = vpIsFix(r), redoIt = cat === 'todo' && (fix || (rv && rv.status === 'recounted'));
@@ -1372,7 +1378,7 @@ async function renderVpis() {
       ${g && g.last ? `<div class="r3">Zadnja sprememba: ${fmtTime(g.last)}</div>` : ''}
       ${cat === 'rc' ? `<div class="rcnote">↺ Čaka ponovni pregled: ${esc(rv.target || 'vsi popisovalci')}${rv.note ? ' – ' + esc(rv.note) : ''}</div>` : ''}
       <div class="vbtns">${btns}</div>
-    </div>`; }).join('') + (rows.length > 150 ? `<div class="empty">Prikazanih prvih 150 – uporabite iskanje.</div>` : '')
+    </div>`; }).join('') + (rows.length > VP.limit ? `<button class="btn wide" id="vpMore">Prikaži več (še ${rows.length - VP.limit})</button>` : '')
     : `<div class="empty">${!VP.loaded ? '' : VP.f === 'todo' ? 'Ni odprtih vnosov. ✓' : 'Ni artiklov v ponovnem pregledu.'}</div>`);
   if (VP.noBatchFn && VP.f === 'todo' && counts.todo) $('#vpItems').insertAdjacentHTML('afterbegin', `<div class="empty" style="color:var(--bad)">Za izvoze v Supabase zaženite posodobitev-7.sql</div>`);
 }
@@ -1452,7 +1458,7 @@ async function closeOpen() {
     if (!b || !b.batch_no) return toast('Ni novih vnosov za izvoz (morda jih je že zaključil drug vpisovalec)');
     exportBatch(b);
     toast(`Izvoz ${b.batch_no}: ${b.items.length} artiklov zaključenih ✓`, 'ok');
-    VP.open = b.batch_no; VP.f = 'done'; await loadVpis(false);
+    VP.open = b.batch_no; VP.f = 'done'; await loadVpis(false); renderVpis();
   } catch (e) {
     busy(false);
     toast(/close_batch|function/i.test(e.message) ? 'Najprej v Supabase zaženite posodobitev-7.sql' : 'Izvoz ni uspel: ' + e.message, 'bad');
@@ -1460,9 +1466,10 @@ async function closeOpen() {
 }
 $('#vpRefresh').onclick = () => loadVpis(true);
 let vpT; $('#vpSearch').addEventListener('input', () => { clearTimeout(vpT); vpT = setTimeout(renderVpis, 200); });
-$('#vpTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; VP.f = b.dataset.f; renderVpis(); });
+$('#vpTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; VP.f = b.dataset.f; VP.limit = 60; renderVpis(); });
 $('#vpItems').addEventListener('click', async e => {
   if (e.target.closest('#vpClose')) return closeOpen();
+  if (e.target.closest('#vpMore')) { VP.limit += 100; return renderVpis(); }
   const b = e.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, bc = b.closest('[data-batch]'), batch = bc && VP.batches.find(x => String(x.batch_no) === bc.dataset.batch);
   if (act === 'xls' && batch) return exportBatch(batch);
@@ -1494,6 +1501,7 @@ async function myEntries() {
   return (await DB.all('entries')).filter(e => !e.deleted && e.popis === S.popis && sameName(e.counter, S.name))
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
+let LISTLIM = 100;
 async function renderList() {
   const q = norm($('#listSearch').value);
   const all = await myEntries();
@@ -1501,15 +1509,17 @@ async function renderList() {
   const arts = new Set(all.map(e => e.code)).size;
   const pend = all.filter(e => !e.synced).length;
   $('#listSummary').textContent = `${all.length} vnosov · ${arts} različnih artiklov` + (pend ? ` · ${pend} čaka na nalaganje` : ' · vse naloženo');
-  $('#listItems').innerHTML = es.length ? es.slice(0, 500).map(e => `
+  const lim = LISTLIM;
+  $('#listItems').innerHTML = es.length ? es.slice(0, lim).map(e => `
     <div class="card" data-id="${esc(e.id)}">
       <div class="r1"><b>${esc(e.code)}</b><span class="qty">${fmt(e.quantity)} ${esc(e.unit || '')}</span></div>
       <div class="r2">${esc([e.manufacturer, e.description].filter(Boolean).join(' – ') || '—')}</div>
       <div class="r3"><span class="dot ${e.synced ? 'ok' : 'pend'}"></span>${esc([e.location, fmtTime(e.created_at)].filter(Boolean).join(' · '))}</div>
-    </div>`).join('') + (es.length > 500 ? `<div class="empty">Prikazanih prvih 500 – uporabite iskanje.</div>` : '')
+    </div>`).join('') + (es.length > lim ? `<button class="btn wide" id="listMore">Prikaži več (še ${es.length - lim})</button>` : '')
     : `<div class="empty">${all.length ? 'Ni zadetkov.' : 'Še ni vnosov. Začnite na zaslonu Skeniraj.'}</div>`;
 }
-$('#listSearch').addEventListener('input', () => renderList());
+let lsT; $('#listSearch').addEventListener('input', () => { LISTLIM = 100; clearTimeout(lsT); lsT = setTimeout(renderList, 150); });
+$('#listItems').addEventListener('click', e => { if (e.target.closest('#listMore')) { e.stopPropagation(); LISTLIM += 200; renderList(); } }, true);
 $('#listItems').addEventListener('click', async ev => {
   const el = ev.target.closest('.card'); if (!el) return;
   const e = await DB.get('entries', el.dataset.id); if (!e) return;
@@ -1678,7 +1688,7 @@ async function readTable(file) {
 }
 $('#importFile').addEventListener('change', async ev => {
   const file = ev.target.files[0]; if (!file) return;
-  if (!window.XLSX) return toast('Knjižnica za Excel se ni naložila', 'bad');
+  try { await needXLSX(); } catch (e) { return toast(e.message, 'bad'); }
   busy(true, 'Berem datoteko …');
   let rows;
   try { rows = await readTable(file); } catch (e) { busy(false); return toast('Datoteke ni mogoče prebrati: ' + e.message, 'bad'); }
@@ -1810,8 +1820,19 @@ $('#ovReset').onclick = async () => {
 };
 
 /* ================= IZVOZ ================= */
-function exportXlsx(filename, sheets) {
-  if (!window.XLSX) return toast('Knjižnica za Excel se ni naložila', 'bad');
+// Knjižnica za Excel (~1 MB) se naloži šele, ko je potrebna (hitrejši zagon); v mirovanju jo predhodno naložimo
+let xlsxP = null;
+function needXLSX() {
+  if (window.XLSX) return Promise.resolve();
+  return xlsxP || (xlsxP = new Promise((res, rej) => {
+    const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.onload = () => res(); sc.onerror = () => { xlsxP = null; rej(new Error('Knjižnica za Excel se ni naložila (preverite internet)')); };
+    document.head.appendChild(sc);
+  }));
+}
+setTimeout(() => (window.requestIdleCallback || setTimeout)(() => needXLSX().catch(() => {})), 4000);
+async function exportXlsx(filename, sheets) {
+  try { await needXLSX(); } catch (e) { return toast(e.message, 'bad'); }
   const wb = XLSX.utils.book_new();
   sheets.forEach(([name, rows]) => {
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ '': 'Ni podatkov' }]);
@@ -1845,34 +1866,45 @@ async function updateBadge() {
   else { b.className = 'sync ok'; b.textContent = 'Naloženo'; }
 }
 $('#syncBadge').onclick = () => { if (lastSyncErr) toast(lastSyncErr, 'bad'); else sync(true); };
-async function pullArticles() {
+// Prekrivanje (2 min) le, če je zadnja sprememba sveža – sicer se je prej ves seznam prenašal ob vsaki sinhronizaciji
+const overlapFrom = ts => !ts ? '-infinity' : (Date.now() - Date.parse(ts) < 300000 ? new Date(Date.parse(ts) - 120000).toISOString() : ts);
+const newer = (a, b) => !!a && (!b || Date.parse(a) > Date.parse(b));
+async function pullArticles(serverMax) {
   const since = (await DB.kvGet('artSince')) || { ts: null, code: '' };
-  // 2 minuti prekrivanja, da ne zgrešimo sočasnih zapisov
-  let ts = since.ts ? new Date(new Date(since.ts).getTime() - 120000).toISOString() : null, code = since.ts ? '' : '';
-  let last = since;
+  if (serverMax !== undefined && since.ts && !newer(serverMax, since.ts) && Date.now() - Date.parse(since.ts) >= 300000) return false;
+  let ts = overlapFrom(since.ts), code = since.ts && ts === since.ts ? since.code || '' : '', last = since, changed = false, localMap = null;
   for (let guard = 0; guard < 100; guard++) {
-    const rows = await rpc('get_articles', { p_pin: S.pin, p_since: ts || '-infinity', p_after_code: code }) || [];
+    const rows = await rpc('get_articles', { p_pin: S.pin, p_since: ts, p_after_code: code }) || [];
     if (rows.length) {
-      const local = rows.map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, sort_order: r.sort_order ?? null, updated_at: r.updated_at }));
-      await DB.putMany('articles', local); invalidateArts();
+      if (!localMap) { localMap = new Map(); (await DB.all('articles')).forEach(a => localMap.set(a.code, a.updated_at)); }
+      const fresh = rows.filter(r => localMap.get(r.code) !== r.updated_at)
+        .map(r => ({ code: r.code, ean: r.ean, manufacturer: r.manufacturer, description: r.description, unit: r.unit, book_qty: r.book_qty, source: r.source, sort_order: r.sort_order ?? null, updated_at: r.updated_at }));
+      if (fresh.length) { await DB.putMany('articles', fresh); changed = true; }
       const lr = rows[rows.length - 1]; ts = lr.updated_at; code = lr.code; last = { ts: lr.updated_at, code: lr.code };
     }
     if (rows.length < 5000) break;
   }
+  if (changed) invalidateArts();
   if (last && last.ts) await DB.kvSet('artSince', last);
+  return changed;
 }
-async function pullAliases() {
+async function pullAliases(serverMax) {
   const since = (await DB.kvGet('aliasSince')) || { ts: null, alias: '' };
-  let ts = since.ts ? new Date(new Date(since.ts).getTime() - 120000).toISOString() : null, after = '', last = since;
+  if (serverMax !== undefined && (!serverMax || (since.ts && !newer(serverMax, since.ts) && Date.now() - Date.parse(since.ts) >= 300000))) return false;
+  let ts = overlapFrom(since.ts), after = since.ts && ts === since.ts ? since.alias || '' : '', last = since, changed = false, localMap = null;
   for (let guard = 0; guard < 100; guard++) {
-    const rows = await rpc('get_aliases', { p_pin: S.pin, p_since: ts || '-infinity', p_after: after }) || [];
+    const rows = await rpc('get_aliases', { p_pin: S.pin, p_since: ts, p_after: after }) || [];
     if (rows.length) {
-      await DB.putMany('aliases', rows.map(r => ({ alias: r.alias, raw: r.raw, code: r.code }))); invalidateArts();
+      if (!localMap) { localMap = new Map(); (await DB.all('aliases')).forEach(a => localMap.set(a.alias, a.code + '|' + (a.updated_at || ''))); }
+      const fresh = rows.filter(r => localMap.get(r.alias) !== r.code + '|' + r.updated_at).map(r => ({ alias: r.alias, raw: r.raw, code: r.code, updated_at: r.updated_at }));
+      if (fresh.length) { await DB.putMany('aliases', fresh); changed = true; }
       const lr = rows[rows.length - 1]; ts = lr.updated_at; after = lr.alias; last = { ts: lr.updated_at, alias: lr.alias };
     }
     if (rows.length < 5000) break;
   }
+  if (changed) invalidateArts();
   if (last && last.ts) await DB.kvSet('aliasSince', last);
+  return changed;
 }
 let aliasFnMissing = false;
 let syncPromise = null;
@@ -1886,8 +1918,13 @@ async function _sync(manual) {
   if (!navigator.onLine) { updateBadge(); if (manual) toast('Ni internetne povezave', 'bad'); return; }
   syncing = true;
   try {
-    try { await applyReset(await rpc('get_reset', { p_pin: S.pin, p_popis: S.popis })); }
-    catch (e) { if (/Napačen PIN/.test(e.message)) throw e; }          // posodobitev-6 še ni zagnana
+    let st = null;                                                      // stanje v ENI zahtevi (posodobitev-8)
+    try { st = await rpc('get_state', { p_pin: S.pin, p_popis: S.popis }); } catch (e) { if (/Napačen PIN/.test(e.message)) throw e; }
+    if (st) await applyReset(st.reset);
+    else {
+      try { await applyReset(await rpc('get_reset', { p_pin: S.pin, p_popis: S.popis })); }
+      catch (e) { if (/Napačen PIN/.test(e.message)) throw e; }        // posodobitev-6 še ni zagnana
+    }
     const pend = (await DB.all('entries')).filter(e => !e.synced);
     for (let i = 0; i < pend.length; i += 200) {
       const chunk = pend.slice(i, i + 200);
@@ -1904,14 +1941,14 @@ async function _sync(manual) {
       for (const a of chunk) { const now = await DB.get('outbox_art', a.code); if (now && now.ts === a.ts) await DB.del('outbox_art', a.code); }
     }
     try {
-      const v = await rpc('get_list_version', { p_pin: S.pin });
+      const v = st ? st.list_version : await rpc('get_list_version', { p_pin: S.pin });
       const lv = await DB.kvGet('listVersion');
       if (typeof v === 'number' && lv !== v) {            // popisni list je bil izbrisan ali zamenjan
         if (lv !== undefined && lv !== null) await clearLocalList();
         await DB.kvSet('listVersion', v);
       }
     } catch (e) { if (/Napačen PIN/.test(e.message)) throw e; } // posodobitev-3 še ni zagnana
-    await pullArticles();
+    await pullArticles(st ? st.art_max : undefined);
     // povezane kode (če posodobitev-2.sql še ni zagnana, se počaka – vnosi tečejo normalno)
     try {
       const ob = await DB.all('outbox_alias');
@@ -1920,19 +1957,19 @@ async function _sync(manual) {
         await rpc('upsert_aliases', { p_pin: S.pin, p_aliases: chunk.map(({ ts, ...r }) => r) });
         for (const a of chunk) { const now = await DB.get('outbox_alias', a.alias); if (now && now.ts === a.ts) await DB.del('outbox_alias', a.alias); }
       }
-      await pullAliases(); aliasFnMissing = false;
+      await pullAliases(st ? st.alias_max : undefined); aliasFnMissing = false;
     } catch (e) {
       if (/Napačen PIN/.test(e.message)) throw e;
       if (!aliasFnMissing) { aliasFnMissing = true; console.warn('Povezane kode:', e.message); }
     }
     try {
-      const q = (await DB.kvGet('revOut')) || [];
+      const q = (await DB.kvGet('revOut')) || [], hadQueue = q.length > 0;
       while (q.length) {
         try { await sendReview(q[0]); } catch (e) { if (!/samo vpisovalec/.test(e.message)) throw e; }
         q.shift(); await DB.kvSet('revOut', q);
       }
-      await pullReviews();
-      if (curScreen === 'plist' && !$('#plSearch').matches(':focus')) renderPlist();
+      const ch = st && !hadQueue ? await applyReviews(st.reviews || []) : await pullReviews();
+      if (ch && curScreen === 'plist' && !$('#plSearch').matches(':focus')) renderPlist();
     } catch (e) { if (/Napačen PIN/.test(e.message)) throw e; } // posodobitev-4 še ni zagnana
     lastSyncErr = '';
     if (manual) toast('Vse naloženo', 'ok');

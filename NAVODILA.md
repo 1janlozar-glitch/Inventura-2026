@@ -21,6 +21,10 @@ V Supabase → **SQL Editor** → **New query** in po vrsti zaženite (**Run**):
 
 PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'NOVPIN' where id = 1;`
 
+## 1c. Hitrejša sinhronizacija (posodobitev 8)
+
+V Supabase → SQL Editor zaženite `supabase/posodobitev-8.sql`. Samo doda eno funkcijo za branje – ne spreminja podatkov ne PIN-ov. Brez nje aplikacija deluje, le počasneje sinhronizira.
+
 ## 2. AI branje nalepk – enkrat, 5 minut
 
 1. Na **console.anthropic.com** ustvarite API ključ (Settings → API Keys) in naložite dobroimetje (Billing).
