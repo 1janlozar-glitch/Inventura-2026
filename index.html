@@ -250,6 +250,7 @@ body.onItem nav{display:none}   /* med vnosom količine več prostora */
         <button class="btn primary" id="confirmBtn">Potrdi</button>
       </div>
       <div id="preview"></div>
+      <button class="btn small" id="noCodeBtn" style="align-self:flex-start">➕ Artikel brez šifre (drugi artikli)</button>
       <div class="sugg" id="sugg"></div>
       <div class="last" id="lastList"></div>
     </div>
@@ -323,7 +324,8 @@ body.onItem nav{display:none}   /* med vnosom količine več prostora */
       <div class="tabs" id="vpTabs">
         <button data-f="todo" class="active">Za vpis</button>
         <button data-f="rc">Ponovno</button>
-        <button data-f="done">Zaključeni</button>
+        <button data-f="done">Izvozi</button>
+        <button data-f="other">Drugi</button>
       </div>
       <div class="summary" id="vpSummary"></div>
     </div>
@@ -790,6 +792,9 @@ async function artIndex() {
   }
   return ART;
 }
+// Ali je artikel na popisnem listu iz ERP (uvožen). Drugi = dodani med popisom (brez ERP šifre) -> ne gredo v inventuro.
+async function hasList() { return (await artIndex()).some(x => x.a.source === 'uvoz'); }
+const onList = (a, listLoaded) => !listLoaded || (a && a.source === 'uvoz');
 // OCR pogosto zamenja podobne znake – za primerjavo jih poenotimo
 function ckey(s) { return skey(s).replace(/o/g, '0').replace(/[il]/g, '1').replace(/s/g, '5').replace(/b/g, '8').replace(/z/g, '2'); }
 // Ali se niza razlikujeta za največ en znak (manjkajoč, odvečen ali zamenjan)
@@ -927,6 +932,11 @@ function startLink(raw, cand = []) {
 $('#codeIn').addEventListener('input', () => { S.method = 'rocno'; clearTimeout(pvT); pvT = setTimeout(() => lookupPreview($('#codeIn').value), 200); });
 $('#codeIn').addEventListener('focus', () => { pauseScanner(); setCompact(true); });
 $('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#confirmBtn').click(); } });
+// artikel brez kakršnekoli oznake: dobi samodejno oznako BS-…
+$('#noCodeBtn').onclick = () => {
+  const code = 'BS-' + Date.now().toString(36).toUpperCase().slice(-6);
+  clearCode(); S.method = 'brez'; openItem(code, null);
+};
 $('#confirmBtn').onclick = async () => {
   if (S.link) {
     const v = $('#codeIn').value.trim(); const a = v && await findArticle(v);
@@ -1070,7 +1080,8 @@ async function openItem(code, ai) {
   else ir.className = 'hidden';
   pauseScanner();
   $('#itCode').textContent = cur.code;
-  $('#itBadges').innerHTML = (art ? '<span class="badge known">ZNAN</span>' : '<span class="badge new">NOV ARTIKEL</span>') + (ai ? '<span class="badge ai">AI</span>' : '');
+  const lst = await hasList(), isOther = lst && !(art && art.source === 'uvoz');
+  $('#itBadges').innerHTML = (isOther ? `<span class="badge new">${art ? 'DRUGI ARTIKEL' : 'NOV – DRUGI ARTIKEL'}</span>` : art ? '<span class="badge known">ZNAN</span>' : '<span class="badge new">NOV ARTIKEL</span>') + (ai ? '<span class="badge ai">AI</span>' : '');
   $('#itEan').textContent = cur.ean && cur.ean !== cur.code ? 'EAN ' + cur.ean : '';
   $('#itBook').textContent = art && art.book_qty !== null && art.book_qty !== undefined ? `Knjižna zaloga: ${fmt(art.book_qty)} ${art.unit || ''}` : '';
   $('#itMfr').value = (art && art.manufacturer) || (ai && ai.manufacturer) || '';
@@ -1084,6 +1095,7 @@ async function openItem(code, ai) {
   await fillMfrList();
   show('item');
   $('#itSub').textContent = [$('#itMfr').value, $('#itDesc').value].filter(Boolean).join(' – ') || (art ? '' : 'Nov artikel – vpišite proizvajalca in opis spodaj');
+  if (isOther) $('#itSub').textContent = 'Ni na popisnem listu → med drugimi artikli (ne gre v inventuro)' + ($('#itDesc').value ? ' · ' + $('#itDesc').value : '');
   $('#itMore').open = !art;                                          // pri znanem artiklu opis ni potreben
   $('#item').scrollTop = 0;
   setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 80);
@@ -1227,13 +1239,15 @@ const PL = { f: 'all' };
 let plT;
 async function renderPlist() {
   const q = $('#plSearch').value.trim();
-  const [index, mine] = await Promise.all([artIndex(), myQtyMap()]);
+  const [all, mine] = await Promise.all([artIndex(), myQtyMap()]);
+  const lst = all.some(x => x.a.source === 'uvoz');
+  const index = lst ? all.filter(x => x.a.source === 'uvoz') : all;     // drugi artikli niso na popisnem listu
   if (!index.length) {
     $('#plSummary').textContent = '';
     $('#plItems').innerHTML = `<div class="empty">Popisni list še ni naložen.<br><br>Vodja popisa ga naloži na zavihku <b>Pregled → Naloži Excel</b>.<br>Do takrat lahko artikle iščete in vpisujete na zavihku Išči.</div>`;
     return;
   }
-  let res = q ? await searchArts(q, index.length) : index.map(x => x.a);
+  let res = q ? (await searchArts(q, all.length)).filter(a => !lst || a.source === 'uvoz') : index.map(x => x.a);
   const st = c => (REV.get(c) || {}).status;
   if (PL.f === 'todo') res = res.filter(a => !mine.has(a.code) && st(a.code) !== 'done');
   else if (PL.f === 'done') res = res.filter(a => mine.has(a.code) || st(a.code) === 'done');
@@ -1295,16 +1309,18 @@ async function vpisRows() {
     const nk = nameNice(e.counter); x.by.set(nk, round((x.by.get(nk) || 0) + Number(e.quantity)));   // JAN in Jan = ista oseba
     if ((e.updated_at || '') > x.last) x.last = e.updated_at || '';
   });
-  const rows = idx.map((x, i) => ({ a: x.a, pos: x.a.sort_order ?? (i + 1), g: g.get(x.a.code), rv: REV.get(x.a.code) }));
+  const lst = idx.some(x => x.a.source === 'uvoz');
+  const rows = idx.map((x, i) => ({ a: x.a, pos: x.a.sort_order ?? (i + 1), g: g.get(x.a.code), rv: REV.get(x.a.code), other: !onList(x.a, lst) }))
+    .filter(r => !r.other || r.g);                                            // drugi artikli le, če so popisani
   const known = new Set(idx.map(x => x.a.code));
-  [...g.keys()].filter(c => !known.has(c)).sort().forEach(c => {          // artikli, ki jih ni na popisnem listu
-    const e = g.get(c).e; rows.push({ a: { code: c, manufacturer: e.manufacturer, description: e.description, unit: e.unit }, pos: '', g: g.get(c), rv: REV.get(c) });
+  [...g.keys()].filter(c => !known.has(c)).sort().forEach(c => {          // artikli, ki jih ni v šifrantu
+    const e = g.get(c).e; rows.push({ a: { code: c, manufacturer: e.manufacturer, description: e.description, unit: e.unit }, pos: '', g: g.get(c), rv: REV.get(c), other: lst });
   });
   return rows;
 }
 // po izvozu spremenjena količina (npr. kasnejši vnos) -> znova za vpis kot popravek
 const vpChanged = r => r.rv && r.rv.status === 'done' && r.rv.qty_done !== null && r.rv.qty_done !== undefined && r.g && round(r.g.qty) !== round(Number(r.rv.qty_done));
-const vpCat = r => r.rv && r.rv.status === 'recount' ? 'rc' : r.rv && r.rv.status === 'done' && !vpChanged(r) ? 'done' : r.g ? 'todo' : 'none';
+const vpCat = r => r.other ? 'other' : r.rv && r.rv.status === 'recount' ? 'rc' : r.rv && r.rv.status === 'done' && !vpChanged(r) ? 'done' : r.g ? 'todo' : 'none';
 const vpIsFix = r => vpCat(r) === 'todo' && r.rv && r.rv.batch_no;            // popravek že izvoženega artikla
 // rdeč števec na zavihku Vpis: koliko artiklov čaka na vpis v ERP
 async function updateVpisBadge(rows) {
@@ -1318,15 +1334,16 @@ async function renderVpis() {
   if (curScreen !== 'vpis') return;
   let rows = await vpisRows();
   rows.sort((p, q) => (vpIsFix(q) || (q.rv && q.rv.status === 'recounted')) - (vpIsFix(p) || (p.rv && p.rv.status === 'recounted')));   // popravki na vrh
-  const counts = { todo: 0, rc: 0, done: 0, none: 0 }; rows.forEach(r => counts[vpCat(r)]++);
+  const counts = { todo: 0, rc: 0, done: 0, none: 0, other: 0 }; rows.forEach(r => counts[vpCat(r)]++);
   const fixes = rows.filter(r => vpIsFix(r) || (vpCat(r) === 'todo' && r.rv && r.rv.status === 'recounted')).length;
   $('#vpTabs').querySelectorAll('button').forEach(b => {
     const f = b.dataset.f;
-    b.textContent = f === 'todo' ? `${fixes ? '❗' : ''}Za vpis ${counts.todo}` : f === 'rc' ? `Ponovno ${counts.rc}` : `Izvozi ${VP.batches.length}`;
+    b.textContent = f === 'todo' ? `${fixes ? '❗' : ''}Za vpis ${counts.todo}` : f === 'rc' ? `Ponovno ${counts.rc}` : f === 'other' ? `Drugi ${counts.other}` : `Izvozi ${VP.batches.length}`;
     b.classList.toggle('active', f === VP.f);
   });
   const q = $('#vpSearch').value.trim(), qk = skey(q);
   if (VP.f === 'done') return renderBatches(rows, qk);
+  if (VP.f === 'other') return renderOther(rows.filter(r => r.other), qk);
   rows = rows.filter(r => vpCat(r) === VP.f);
   if (q) rows = rows.filter(r => skey([r.a.code, r.a.manufacturer, r.a.description, r.a.ean].join(' ')).includes(qk));
   const nextNo = (VP.batches[0] ? VP.batches[0].batch_no : 0) + 1;
@@ -1378,6 +1395,25 @@ function renderBatches(rows, qk) {
             ${state === 'ok' ? `<button class="btn small warn" data-act="rc" style="float:right;min-height:34px">↺ Preglej še enkrat</button>` : ''}</div>
         </div>`; }).join('')}</div>` : ''}
     </div>`; }).join('') : `<div class="empty">${VP.loaded ? 'Še ni izvozov. Na zavihku Za vpis tapnite »Zaključi odprte vnose«.' : ''}</div>`;
+}
+// Drugi artikli: niso na popisnem listu iz ERP (ne gredo v inventuro) – seznam za tržnico
+function renderOther(rows, qk) {
+  if (qk) rows = rows.filter(r => skey([r.a.code, r.a.manufacturer, r.a.description].join(' ')).includes(qk));
+  $('#vpSummary').textContent = 'Artikli, ki jih ni na popisnem listu iz ERP. Ne gredo v inventuro – seznam za tržnico.';
+  $('#vpItems').innerHTML = (rows.length ? `<div class="closebar" style="border-color:var(--accent)"><button class="btn primary wide" id="vpOtherXls">⬇ Excel za tržnico (${rows.length})</button></div>` : '')
+    + (rows.length ? rows.map(r => { const { a, g } = r, unit = (g && g.unit) || a.unit || ''; return `<div class="card" data-code="${esc(a.code)}">
+      <div class="r1"><b>${esc(a.code)}</b><span class="qty">${fmt(g.qty)} ${esc(unit)}</span></div>
+      <div class="r2">${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—')}</div>
+      <div class="cnts">${[...g.by].map(([n, v]) => `<span>${esc(n)}: <b>${fmt(v)}</b></span>`).join('')}</div>
+      ${g.last ? `<div class="r3">Zadnja sprememba: ${fmtTime(g.last)}</div>` : ''}
+    </div>`; }).join('') : `<div class="empty">${VP.loaded ? 'Ni drugih artiklov.' : ''}</div>`);
+  const b = $('#vpOtherXls'); if (b) b.onclick = () => exportOther(rows);
+}
+function exportOther(rows) {
+  const d = new Date(), ds = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+  exportXlsx(`Drugi artikli za tržnico - ${S.popis} (${ds}).xlsx`, [['Drugi artikli', rows.map(r => ({
+    'Oznaka': r.a.code.startsWith('BS-') ? '' : r.a.code, 'Proizvajalec': r.a.manufacturer || '', 'Opis': r.a.description || '',
+    'Količina': r.g.qty, 'Enota': r.g.unit || r.a.unit || '', 'Popisovalci': [...r.g.by.keys()].join(', '), 'Zadnja sprememba': fmtTime(r.g.last), 'Interna oznaka': r.a.code }))]]);
 }
 function exportBatch(b) {
   const rows = (b.items || []).map(i => ({
@@ -1574,7 +1610,7 @@ document.querySelectorAll('#ovTabs button').forEach(b => b.onclick = () => {
   OV.tab = b.dataset.tab; document.querySelectorAll('#ovTabs button').forEach(x => x.classList.toggle('active', x === b)); renderOverview();
 });
 $('#ovExport').onclick = async () => {
-  if (!OV.loaded) await loadOverview(false);
+  if (navigator.onLine || !OV.loaded) await loadOverview(false);            // vedno najnovejše stanje
   if (!OV.loaded) return;
   const arts = await articleMap();
   const rows = groupByArticle(OV.entries, arts);
@@ -1588,7 +1624,11 @@ $('#ovExport').onclick = async () => {
     .sort((a, b) => a.code.localeCompare(b.code))
     .map(a => ({ 'Šifra': a.code, 'EAN': a.ean || '', 'Proizvajalec': a.manufacturer || '', 'Opis': a.description || '', 'Enota': a.unit || '', 'Knjižna zaloga': Number(a.book_qty) }));
   const dupRows = OV.entries.filter(e => dup.has(e.code + '|' + (e.location || ''))).sort((a, b) => (a.code + a.location).localeCompare(b.code + b.location)).map(entryRow);
-  const sheets = [['Po artiklih', byArt], ['Vnosi', OV.entries.map(entryRow)]];
+  const lstX = [...arts.values()].some(a => a.source === 'uvoz');
+  const isOtherCode = c => lstX && (arts.get(c) || {}).source !== 'uvoz';
+  const otherRows = byArt.filter(r => isOtherCode(r['Šifra'])).map(({ 'Zap. št.': _z, 'Status': _s, 'Knjižna zaloga': _k, 'Razlika': _r, ...rest }) => rest);
+  const sheets = [['Po artiklih', byArt.filter(r => !isOtherCode(r['Šifra']))], ['Vnosi', OV.entries.map(entryRow)]];
+  if (otherRows.length) sheets.push(['Drugi artikli', otherRows]);
   if (notCounted.length) sheets.push(['Nepopisano', notCounted]);
   if (dupRows.length) sheets.push(['Dvojno štetje', dupRows]);
   exportXlsx(`Popis ${S.popis} - skupno.xlsx`, sheets);

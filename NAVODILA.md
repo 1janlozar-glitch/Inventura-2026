@@ -56,6 +56,7 @@ PIN vpisovalca kasneje spremenite z: `update public.app_config set vpis_pin = 'N
 - **Išči**: vpišite šifro ali del opisa (npr. `lc1d18`, `kontaktor 9a`, `unica okvir beli`). Spodaj se sproti pokažejo artikli – tapnite pravega.
 - Vpišite **količino** → **Shrani**. Polje za iskanje je takoj pripravljeno za naslednji artikel.
 - Artikla ni na seznamu: vpišite njegovo kodo → **Potrdi** → izpolnite proizvajalca, opis, enoto, količino → **Shrani**.
+- **➕ Artikel brez šifre**: za artikel brez kakršnekoli oznake (dobi samodejno oznako BS-…) – vpišite proizvajalca, opis in količino. Taki in drugi novi artikli gredo med **Druge artikle** (seznam za tržnico), ne v inventuro.
 - **Popisni list**: vsi artikli v vrstnem redu iz Excela. Tapnite artikel → količina. Filter *Nepopisani* pokaže, kaj še manjka.
 - Isti artikel dvakrat: aplikacija vpraša **Prištej** ali **Zamenjaj**.
 - **Oranžen trak »Za ponovni pregled«**: vpisovalec prosi, da artikel preštejete znova. Tapnite trak → artikel → nova količina → **Zamenjaj**.
@@ -76,6 +77,7 @@ Najprej v Supabase enkrat zaženite `supabase/posodobitev-7.sql` (ne spreminja P
 - **Ni podvajanja**: v naslednji izvoz pridejo samo novi vnosi in **popravki**. Popravek je artikel, ki se je po izvozu spremenil (ponovno štetje ali dodatni vnos). Označen je z rdečim **!** in v Excelu s stolpcema *Popravek* (prejšnja količina in izvoz) in *Razlika do prej*. **Pri popravku v ERP vpišite novo količino, ne prištevajte.**
 - **Ponovno**: artikli, ki čakajo, da jih popisovalec znova prešteje (*Prekliči zahtevo*, če ste se premislili).
 - Zaključevati lahko samo vpisovalec.
+- **Drugi**: artikli, ki jih **ni na popisnem listu iz ERP** (popisovalci so jih dodali kot nove ali brez šifre). **Ne gredo v izvoze za ERP** in ne v inventuro. Gumb **⬇ Excel za tržnico** izvozi seznam (oznaka, proizvajalec, opis, količina) – za prodajo nekurantne zaloge.
 
 ## Za vodjo popisa
 
