@@ -2,7 +2,7 @@
 <html lang="sl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#111418">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -135,13 +135,26 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 .last .it span:last-child{white-space:nowrap}
 .last .it span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* item */
-.codebig{font-size:26px;font-weight:700;word-break:break-all}
+.codebig{font-size:22px;font-weight:800;overflow-wrap:anywhere;line-height:1.2}
+#item{overflow-x:hidden}
+body.onItem nav{display:none}   /* med vnosom količine več prostora */
+.itHead{position:sticky;top:0;z-index:3;background:var(--card);border-bottom:1px solid var(--line);padding:10px 12px 12px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.itTop{display:flex;gap:10px;align-items:flex-start}
+.itSub{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.itX{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:18px}
+.qtyline{display:flex;gap:8px;margin-top:10px;align-items:stretch}
+.qtyline #itQty{flex:1;min-width:0}
+.qtyline #itUnit{flex:0 0 82px;padding:0 6px;font-size:16px}
+.qtyline #itSave{flex:0 0 104px;min-height:60px;font-size:18px}
+#itMore{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+#itMore summary{cursor:pointer;color:var(--accent);font-weight:600;padding:6px 0;font-size:15px}
 .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;margin-left:6px;vertical-align:middle}
 .badge.known{background:rgba(47,191,113,.15);color:var(--ok)}
 .badge.new{background:rgba(240,180,41,.15);color:var(--warn)}
 .badge.ai{background:rgba(47,140,255,.15);color:var(--accent)}
 .qtyrow{display:flex;gap:8px}
-#itQty{font-size:34px;font-weight:700;text-align:center;padding:10px}
+#itQty{font-size:30px;font-weight:800;text-align:center;padding:8px}
+#itQty::placeholder{font-size:16px;font-weight:500}
 .qtybtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
 .qtybtns .btn{min-height:50px;padding:0}
 .actions{display:flex;gap:10px;margin-top:18px}
@@ -236,44 +249,44 @@ mark{background:rgba(47,140,255,.3);color:inherit;border-radius:3px;padding:0 1p
 
   <!-- ARTIKEL IN KOLIČINA -->
   <section class="screen" id="item">
-    <div class="pad">
-      <div class="muted" style="font-size:13px">Koda artikla</div>
-      <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
-      <div class="muted" id="itEan" style="font-size:13px"></div>
-      <div class="linknote hidden" id="itLink"></div>
-      <div id="itReview" class="hidden"></div>
-      <div class="muted" id="itBook" style="font-size:14px;margin-top:4px"></div>
-
-      <label for="itMfr">Proizvajalec</label>
-      <input id="itMfr" list="mfrList" autocomplete="off">
-      <datalist id="mfrList"></datalist>
-
-      <label for="itDesc">Opis</label>
-      <textarea id="itDesc" rows="2"></textarea>
-
-      <div class="row" style="gap:10px">
+    <!-- zamrznjena vrstica: ERP šifra je vedno vidna -->
+    <div class="itHead">
+      <div class="itTop">
         <div class="grow">
-          <label for="itQty">Količina</label>
-          <input id="itQty" inputmode="decimal" autocomplete="off" enterkeyhint="done">
+          <div><span class="codebig" id="itCode"></span><span id="itBadges"></span></div>
+          <div class="itSub" id="itSub"></div>
         </div>
-        <div style="width:118px">
-          <label for="itUnit">Enota</label>
-          <select id="itUnit">
-            <option>kos</option><option>m</option><option>kolut</option><option>paket</option><option>kpl</option><option>kg</option><option>l</option>
-          </select>
-        </div>
+        <button class="itX" id="itCancel" aria-label="Prekliči">✕</button>
       </div>
+      <!-- količina + Shrani v isti vrstici, vidna tudi ob odprti tipkovnici -->
+      <div class="qtyline">
+        <input id="itQty" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="Količina">
+        <select id="itUnit" aria-label="Enota">
+          <option>kos</option><option>m</option><option>kolut</option><option>paket</option><option>kpl</option><option>kg</option><option>l</option>
+        </select>
+        <button class="btn ok" id="itSave">Shrani</button>
+      </div>
+    </div>
+    <div class="pad" style="padding-top:10px">
       <div class="qtybtns">
         <button class="btn" data-add="-1">−1</button>
         <button class="btn" data-add="1">+1</button>
         <button class="btn" data-add="5">+5</button>
         <button class="btn" data-add="10">+10</button>
       </div>
-      <div class="muted" id="itLoc" style="font-size:13px;margin-top:12px"></div>
-      <div class="actions">
-        <button class="btn" id="itCancel">Prekliči</button>
-        <button class="btn ok" id="itSave">Shrani</button>
-      </div>
+      <div class="linknote hidden" id="itLink"></div>
+      <div id="itReview" class="hidden"></div>
+      <div class="muted" id="itBook" style="font-size:14px;margin-top:8px"></div>
+      <div class="muted" id="itLoc" style="font-size:13px;margin-top:4px"></div>
+      <details id="itMore">
+        <summary>Podatki artikla (proizvajalec, opis)</summary>
+        <div class="muted" id="itEan" style="font-size:13px"></div>
+        <label for="itMfr">Proizvajalec</label>
+        <input id="itMfr" list="mfrList" autocomplete="off">
+        <datalist id="mfrList"></datalist>
+        <label for="itDesc">Opis</label>
+        <textarea id="itDesc" rows="2"></textarea>
+      </details>
     </div>
   </section>
 
@@ -454,6 +467,14 @@ function toggleTheme() {
   applyTheme(t); try { localStorage.setItem('theme', t); } catch {}
 }
 initTheme();
+// Tipkovnica: aplikacija se skrči na vidni del zaslona, da zgornja vrstica (šifra, količina, Shrani) ostane vidna
+if (window.visualViewport) {
+  const fitVV = () => {
+    document.body.style.height = Math.round(visualViewport.height) + 'px';
+    if (window.scrollY) window.scrollTo(0, 0);
+  };
+  visualViewport.addEventListener('resize', fitVV); visualViewport.addEventListener('scroll', fitVV); fitVV();
+}
 $('#themeBtn').onclick = toggleTheme; $('#themeBtn2').onclick = toggleTheme;
 
 /* ================= ZASLON NE UGASNE MED POPISOM ================= */
@@ -532,6 +553,7 @@ function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.go === id));
   curScreen = id;
+  document.body.classList.toggle('onItem', id === 'item');
   if (id === 'scan') {
     renderLast();
     if (CFG.CAMERA) startScanner();
@@ -1053,6 +1075,9 @@ async function openItem(code, ai) {
   $('#itLoc').textContent = 'Popisovalec: ' + S.name + (already !== undefined ? ` · že popisano: ${fmt(already)} ${unit}` : '');
   await fillMfrList();
   show('item');
+  $('#itSub').textContent = [$('#itMfr').value, $('#itDesc').value].filter(Boolean).join(' – ') || (art ? '' : 'Nov artikel – vpišite proizvajalca in opis spodaj');
+  $('#itMore').open = !art;                                          // pri znanem artiklu opis ni potreben
+  $('#item').scrollTop = 0;
   setTimeout(() => { if (!art && !$('#itMfr').value) $('#itMfr').focus(); else $('#itQty').focus(); }, 80);
 }
 document.querySelectorAll('.qtybtns .btn').forEach(b => b.onclick = () => {
