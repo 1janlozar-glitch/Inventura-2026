@@ -59,6 +59,7 @@ V Supabase → SQL Editor zaženite `supabase/posodobitev-8.sql`. Samo doda eno 
   - Prvič se bralnik besedila nalaga nekaj sekund (približno 10 MB), nato je hiter.
 - **Išči**: vpišite šifro ali del opisa (npr. `lc1d18`, `kontaktor 9a`, `unica okvir beli`). Spodaj se sproti pokažejo artikli – tapnite pravega.
 - Vpišite **količino** → **Shrani**. Polje za iskanje je takoj pripravljeno za naslednji artikel.
+- **Kalkulator / delne količine**: pod poljem za količino so gumbi **+ − × ÷ ( ) ⌫**. Primeri: `3×50+12` (3 škatle po 50 in 12 posamičnih), `2,5+1,75+4` (ostanki kabla v m), `4×(12+3)`. Pod poljem se sproti izpiše rezultat (»= 162 kos«), shrani se rezultat. Gumbi +1/+5/+10 pri izračunu dodajo nov del. Enako deluje pri popravku v *Moj seznam*.
 - Artikla ni na seznamu: vpišite njegovo kodo → **Potrdi** → izpolnite proizvajalca, opis, enoto, količino → **Shrani**.
 - **➕ Artikel brez šifre**: za artikel brez kakršnekoli oznake (dobi samodejno oznako BS-…) – vpišite proizvajalca, opis in količino. Taki in drugi novi artikli gredo med **Druge artikle** (seznam za tržnico), ne v inventuro.
 - **Popisni list**: vsi artikli v vrstnem redu iz Excela. Tapnite artikel → količina. Filter *Nepopisani* pokaže, kaj še manjka.
