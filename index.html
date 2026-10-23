@@ -118,6 +118,18 @@ h2{font-size:20px;margin:4px 0 8px}
 .card.rc{border-color:var(--warn);background:rgba(240,180,41,.07)}
 .card.ok{border-color:rgba(47,191,113,.5)}
 .rcnote{color:var(--warn);font-size:14px;margin-top:4px}
+.hist{list-style:none;margin:6px 0 0;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.hist li{position:relative;padding:6px 0 8px 6px;font-size:14px}
+.hist li::before{content:'';position:absolute;left:-21px;top:11px;width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.hist li.k-vnos::before,.hist li.k-obnova::before{background:var(--ok)}
+.hist li.k-sprememba::before,.hist li.k-pristej::before,.hist li.k-zamenjaj::before,.hist li.k-popravek::before{background:var(--accent)}
+.hist li.k-izbris::before,.hist li.k-reset::before{background:var(--bad)}
+.hist li.k-izvoz::before{background:var(--text)}
+.hist li.k-ponovno::before,.hist li.k-presteto::before,.hist li.k-preklic::before{background:var(--warn)}
+.hist .ht{font-size:12px;color:var(--muted)}
+.hist .hsum{font-size:12px;color:var(--muted);margin-top:2px}
+.hist .hsum b{color:var(--text)}
+.hist li.k-reset{color:var(--bad);font-weight:700}
 .okmark{color:var(--ok);font-weight:700;white-space:nowrap}
 .cnts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .cnts span{background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:13px}
@@ -369,6 +381,7 @@ body.onItem nav{display:none}   /* med vnosom količine več prostora */
         <button class="btn small grow" id="ovImport">Naloži popisni list (Excel)</button>
         <button class="btn small danger" id="ovClear">Izbriši</button>
       </div>
+      <button class="btn small wide hidden" id="ovHist">🕘 Zgodovina sprememb (Excel)</button>
       <button class="btn small danger wide hidden" id="ovReset">⟲ Začni inventuro znova</button>
       <div class="tabs" id="ovTabs">
         <button data-tab="art" class="active">Po artiklih</button>
@@ -414,7 +427,7 @@ const CFG = {
   SUPABASE_KEY: 'sb_publishable_CtR-PKeCOrLiJ_-nVF8iEw_V5vXgo5C',
   AI_FUNCTION: 'read-label',
   CAMERA: false,           // true = skeniranje črtnih kod s kamero; false = samo iskanje po šifri in opisu
-  VERSION: '2026-10-21.3',  // številka verzije – pri vsaki posodobitvi se poveča
+  VERSION: '2026-10-23.2',  // številka verzije – pri vsaki posodobitvi se poveča
   OCR: true,               // »Slikaj nalepko«: prebere besedilo z nalepke (šifra, kataloška številka, opis) – brez črtnih kod
   SYNC_MS: 15000
 };
@@ -432,6 +445,11 @@ const parseNum = v => { if (v === null || v === undefined) return null; if (type
   else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');          // 1.234 → 1234
   const n = Number(s); return isFinite(n) ? n : null; };
 const round = n => Math.round(n * 1000) / 1000;
+// Dejanje za zgodovino (kako je bila količina spremenjena); gre na strežnik ob naslednji sinhronizaciji
+function addAct(e, a, q, oldQ, newQ, at) {
+  const num = v => v === null || v === undefined ? null : Number(v);
+  e.acts = [...(e.acts || []), { id: uuid(), a, q: num(q), old: num(oldQ), new: num(newQ), at }].slice(-50);
+}
 // Količina z izračunom: »3x50+12«, »2,5+1,75«, »4*(12+3)«, »100/4«. Brez operatorjev = navadno število.
 const CALC_OPS = /[+\-−*x×X·\/÷:()]/;
 function calcQty(v) {
@@ -678,7 +696,7 @@ function startApp() {
   const vp = S.role === 'vpis';
   $('#navVpis').classList.toggle('hidden', !vp); $('#navList').classList.toggle('hidden', vp);
   document.querySelector('nav button[data-go=scan]').classList.toggle('hidden', vp);
-  $('#ovReset').classList.toggle('hidden', !vp);
+  $('#ovReset').classList.toggle('hidden', !vp); $('#ovHist').classList.toggle('hidden', !vp);
   $('#ocrBtn').classList.toggle('hidden', !CFG.OCR);   // vpisovalec: Vpis, Popisni list, Pregled
   loadReviewsLocal().then(updateRcUI);
   OV.loaded = false; VP.loaded = false; updateHeader(); show(vp ? 'vpis' : 'scan'); updateBadge(); sync(); keepAwake();
@@ -1229,12 +1247,15 @@ $('#itSave').onclick = async () => {
       });
       if (!r.value) return;
       finalQty = r.value === 'add' ? sum : qty;
-      Object.assign(mine, { quantity: finalQty, manufacturer: mfr || null, description: desc || null, unit, ean: cur.ean || mine.ean || null, updated_at: nowIso(), synced: false });
+      const tu = nowIso();
+      addAct(mine, r.value === 'add' ? 'pristej' : 'zamenjaj', qty, mine.quantity, finalQty, tu);
+      Object.assign(mine, { quantity: finalQty, manufacturer: mfr || null, description: desc || null, unit, ean: cur.ean || mine.ean || null, updated_at: tu, synced: false });
       await DB.put('entries', mine);
     } else {
       const t = nowIso();
       await DB.put('entries', { id: uuid(), popis: S.popis, counter: S.name, location: S.location, code: cur.code, ean: cur.ean || null,
-        manufacturer: mfr || null, description: desc || null, quantity: qty, unit, method: S.method || 'rocno', deleted: false, created_at: t, updated_at: t, synced: false });
+        manufacturer: mfr || null, description: desc || null, quantity: qty, unit, method: S.method || 'rocno', deleted: false, created_at: t, updated_at: t, synced: false,
+        acts: [{ id: uuid(), a: 'nov', q: qty, old: null, new: qty, at: t }] });
     }
     const a = cur.art;
     if (!a || (mfr && mfr !== a.manufacturer) || (desc && desc !== a.description) || unit !== a.unit || (cur.ean && cur.ean !== a.ean)) {
@@ -1439,8 +1460,8 @@ async function renderVpis() {
     const { a, g, rv } = r, cat = vpCat(r), unit = (g && g.unit) || a.unit || '';
     const diff = g && a.book_qty !== null && a.book_qty !== undefined ? round(g.qty - Number(a.book_qty)) : null;
     const fix = vpIsFix(r), redoIt = cat === 'todo' && (fix || (rv && rv.status === 'recounted'));
-    const btns = cat === 'todo' ? `<button class="btn warn" data-act="rc">↺ Preglej še enkrat</button>`
-      : `<button class="btn" data-act="cancelrc">Prekliči zahtevo</button>`;
+    const btns = (cat === 'todo' ? `<button class="btn warn" data-act="rc">↺ Preglej še enkrat</button>`
+      : `<button class="btn" data-act="cancelrc">Prekliči zahtevo</button>`) + HIST_BTN;
     return `<div class="card ${cat === 'rc' ? 'rc' : ''} ${redoIt ? 'redo' : ''}" data-code="${esc(a.code)}">
       <div class="r1"><b>${redoIt ? '<span class="excl">!</span>' : ''}${r.pos !== '' ? `<span class="ord">${r.pos}.</span>` : ''}${esc(a.code)}</b><span class="qty">${g ? fmt(g.qty) + ' ' + esc(unit) : '—'}</span></div>
       <div class="r2">${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—')}</div>
@@ -1475,7 +1496,7 @@ function renderBatches(rows, qk) {
           <div class="r1"><span>${i.sort_order ? `<span class="ord">${i.sort_order}.</span>` : ''}<b>${esc(i.code)}</b></span><span class="qty">${fmt(i.qty)} ${esc(i.unit || '')}</span></div>
           <div class="r2">${esc(i.description || '')}${i.prev_batch ? ` <span style="color:var(--bad)">· popravek (prej ${fmt(i.prev_qty)} v izvozu ${i.prev_batch})</span>` : ''}</div>
           <div class="r3">${state === 'ok' ? '<span style="color:var(--ok)">✓ v redu</span>' : state === 'later' ? `→ popravljeno v izvozu ${rv.batch_no}` : state === 'rc' ? '<span style="color:var(--warn)">↺ v ponovnem pregledu</span>' : '<span style="color:var(--bad)">! spremenjeno – čaka v Za vpis</span>'}
-            ${state === 'ok' ? `<button class="btn small warn" data-act="rc" style="float:right;min-height:34px">↺ Preglej še enkrat</button>` : ''}</div>
+            <span style="float:right;display:flex;gap:6px"><button class="btn small" data-act="hist" style="min-height:34px">🕘</button>${state === 'ok' ? `<button class="btn small warn" data-act="rc" style="min-height:34px">↺ Preglej še enkrat</button>` : ''}</span></div>
         </div>`; }).join('')}</div>` : ''}
     </div>`; }).join('') : `<div class="empty">${VP.loaded ? 'Še ni izvozov. Na zavihku Za vpis tapnite »Zaključi odprte vnose«.' : ''}</div>`;
 }
@@ -1489,6 +1510,7 @@ function renderOther(rows, qk) {
       <div class="r2">${esc([a.manufacturer, a.description].filter(Boolean).join(' – ') || '—')}</div>
       <div class="cnts">${[...g.by].map(([n, v]) => `<span>${esc(n)}: <b>${fmt(v)}</b></span>`).join('')}</div>
       ${g.last ? `<div class="r3">Zadnja sprememba: ${fmtTime(g.last)}</div>` : ''}
+      <div class="vbtns">${HIST_BTN}</div>
     </div>`; }).join('') : `<div class="empty">${VP.loaded ? 'Ni drugih artiklov.' : ''}</div>`);
   const b = $('#vpOtherXls'); if (b) b.onclick = () => exportOther(rows);
 }
@@ -1546,6 +1568,7 @@ $('#vpItems').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, bc = b.closest('[data-batch]'), batch = bc && VP.batches.find(x => String(x.batch_no) === bc.dataset.batch);
   if (act === 'xls' && batch) return exportBatch(batch);
+  if (act === 'hist') { const hc = (b.closest('[data-code]') || {}).dataset?.code; if (hc) showHistory(hc); return; }
   if (act === 'toggle' && batch) { VP.open = VP.open === batch.batch_no ? null : batch.batch_no; return renderVpis(); }
   const code = (b.closest('[data-code]') || {}).dataset?.code; if (!code) return;
   if (act === 'cancelrc') {                                                   // nazaj v izvoz ali v Za vpis
@@ -1566,6 +1589,92 @@ $('#vpItems').addEventListener('click', async e => {
   }
   renderVpis();
 });
+/* ---------- Zgodovina artikla (samo vpisovalec; v Supabase posodobitev-9.sql) ---------- */
+const HIST_BTN = `<button class="btn" data-act="hist">🕘 Zgodovina</button>`;
+async function getHistory(code) {
+  try { return (await rpc('get_history', { p_pin: S.pin, p_popis: S.popis, p_code: code })) || []; }
+  catch (e) {
+    if (/get_history|function|schema cache/i.test(e.message)) throw new Error('Najprej v Supabase zaženite posodobitev-10.sql');
+    throw e;
+  }
+}
+// Za vsak dogodek izračuna skupno količino artikla po njem (vsota vseh popisovalcev)
+function histRows(ev) {
+  const cur = new Map(); let unknown = new Set(), resetSeen = false;
+  return ev.map(h => {
+    const id = h.entry_id, n = h.qty_new === null || h.qty_new === undefined ? null : Number(h.qty_new);
+    if (h.kind === 'reset') { cur.clear(); unknown.clear(); resetSeen = true; }
+    else if (id && ['vnos', 'sprememba', 'obnova', 'pristej', 'zamenjaj', 'popravek'].includes(h.kind)) {
+      if (n === null) unknown.add(id); else { unknown.delete(id); cur.set(id, n); }
+    } else if (id && h.kind === 'izbris') { cur.delete(id); unknown.delete(id); }
+    const total = unknown.size ? null : round([...cur.values()].reduce((a, b) => a + b, 0));
+    return { ...h, total, entryEvt: !!id };
+  });
+}
+function histText(h) {
+  const u = esc(h.unit || ''), q = v => `<b>${fmt(v)}</b> ${u}`;
+  switch (h.kind) {
+    case 'vnos': return h.qty_new === null || h.qty_new === undefined ? 'Nov vnos' : `Nov vnos: ${q(h.qty_new)}`;
+    case 'sprememba': return h.qty_old === null || h.qty_old === undefined ? `Količina: ${q(h.qty_new)}` : `Sprememba: ${fmt(h.qty_old)} → ${q(h.qty_new)}`;
+    case 'izbris': return h.qty_old === null || h.qty_old === undefined ? 'Vnos izbrisan' : `Vnos izbrisan (bilo ${fmt(h.qty_old)} ${u})`;
+    case 'obnova': return `Vnos obnovljen: ${q(h.qty_new)}`;
+    case 'pristej': return `➕ Prištel ${q(h.action_qty)} (${fmt(h.qty_old)} → <b>${fmt(h.qty_new)}</b>)`;
+    case 'zamenjaj': return `🔁 Na novo preštel: ${q(h.qty_new)} ` + (Number(h.qty_old) === Number(h.qty_new) ? '(enako kot prej)' : `(prej ${fmt(h.qty_old)})`);
+    case 'popravek': return `✏️ Popravil v Moj seznam: ${fmt(h.qty_old)} → ${q(h.qty_new)}`;
+    case 'izvoz': return `Izvoz ${h.batch_no} za ERP: ${q(h.qty_new)}`;
+    case 'ponovno': return '↺ Poslano v ponovni pregled';
+    case 'presteto': return 'Ponovno prešteto';
+    case 'preklic': return 'Zahteva za ponovni pregled preklicana';
+    case 'reset': return '⟲ Inventura začeta znova (vse količine izbrisane)';
+    default: return esc(h.kind);
+  }
+}
+async function showHistory(code) {
+  if (!navigator.onLine) return toast('Zgodovina potrebuje internet', 'bad');
+  busy(true, 'Nalagam zgodovino …');
+  let ev;
+  try { ev = histRows(await getHistory(code)); } catch (e) { busy(false); return toast(e.message, 'bad'); }
+  busy(false);
+  const a = (await artIndex()).find(x => x.a.code === code)?.a || {};
+  // ponovni začetek pokažemo le, če je pred kakšnim dogodkom tega artikla ali za njim
+  const first = ev.findIndex(h => h.kind !== 'reset');
+  ev = ev.filter((h, i) => h.kind !== 'reset' || (first >= 0 && i > first));
+  const body = `<p class="muted">${esc([a.manufacturer, a.description].filter(Boolean).join(' – '))}</p>`
+    + (ev.length ? `<ul class="hist">${ev.slice().reverse().map(h => `<li class="k-${esc(h.kind)}">
+        <div class="ht">${fmtTime(h.at)}${h.counter ? ' · ' + esc(nameNice(h.counter)) : ''}</div>
+        <div>${histText(h)}</div>
+        ${h.note ? `<div class="ht">${esc(h.note)}</div>` : ''}
+        ${h.entryEvt ? `<div class="hsum">Skupaj po tem: ${h.total === null ? 'ni znano' : `<b>${fmt(h.total)}</b> ${esc(h.unit || '')}`}</div>` : ''}
+      </li>`).join('')}</ul>
+      <p class="muted" style="font-size:12px">Najnovejše zgoraj. Spremembe pred uvedbo zgodovine so znane le delno (prvi vnos in zadnje stanje).</p>`
+      : '<p>Za ta artikel še ni zapisov.</p>');
+  await modal({ title: `🕘 ${code}`, body, buttons: [{ label: 'Zapri', value: true, cls: 'primary' }] });
+}
+const KIND_SL = { vnos: 'Nov vnos', sprememba: 'Sprememba', pristej: 'Prištel', zamenjaj: 'Na novo preštel (zamenjal)', popravek: 'Popravek v Moj seznam', izbris: 'Izbris', obnova: 'Obnova', izvoz: 'Izvoz za ERP', ponovno: 'Ponovni pregled', presteto: 'Ponovno prešteto', preklic: 'Preklic zahteve', reset: 'Inventura znova' };
+$('#ovHist').onclick = async () => {
+  if (!navigator.onLine) return toast('Zgodovina potrebuje internet', 'bad');
+  busy(true, 'Nalagam zgodovino …');
+  try {
+    const all = await getHistory(null), by = new Map();
+    all.forEach(h => { if (!by.has(h.code)) by.set(h.code, []); by.get(h.code).push(h); });
+    const idx = new Map((await artIndex()).map(x => [x.a.code, x.a]));
+    const rows = [];
+    const resets = by.get(null) || []; by.delete(null);
+    const push = h => rows.push({
+      'Čas': fmtTime(h.at), 'Šifra': h.code || '(celoten popis)', 'Naziv': (idx.get(h.code) || {}).description || '',
+      'Dogodek': KIND_SL[h.kind] || h.kind, 'Kdo': nameNice(h.counter || ''),
+      'Prej': h.qty_old === null || h.qty_old === undefined ? '' : Number(h.qty_old), 'Potem': h.qty_new === null || h.qty_new === undefined ? '' : Number(h.qty_new),
+      'Vpisal': h.action_qty === null || h.action_qty === undefined ? '' : Number(h.action_qty),
+      'Enota': h.unit || '', 'Skupaj artikel po tem': h.entryEvt && h.total !== null ? h.total : '', 'Izvoz': h.batch_no || '', 'Opomba': h.note || '', _t: h.at });
+    for (const [, list] of by) histRows([...list, ...resets].sort((p, q) => String(p.at).localeCompare(String(q.at)))).filter(h => h.kind !== 'reset').forEach(push);
+    resets.forEach(h => push({ ...h, entryEvt: false }));
+    rows.sort((p, q) => String(p._t).localeCompare(String(q._t))); rows.forEach(r => delete r._t);
+    busy(false);
+    if (!rows.length) return toast('Zgodovina je prazna');
+    const d = new Date();
+    await exportXlsx(`Zgodovina sprememb - ${S.popis} (${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}).xlsx`, [['Zgodovina', rows]]);
+  } catch (e) { busy(false); toast(e.message, 'bad'); }
+};
 // samodejna osvežitev (tudi števec na zavihku Vpis)
 setInterval(() => { if (S.role === 'vpis' && curScreen !== 'login' && !document.hidden && navigator.onLine && !document.querySelector('.modal')) loadVpis(false); }, 20000);
 
@@ -1604,13 +1713,15 @@ $('#listItems').addEventListener('click', async ev => {
   });
   if (r.value === 'save') {
     const q = calcQty(r.vals.qty); if (q === null || q < 0) return toast('Neveljavna količina', 'bad');
-    Object.assign(e, { quantity: q, updated_at: nowIso(), synced: false });
+    const tu = nowIso(); if (q !== Number(e.quantity)) addAct(e, 'popravek', q, e.quantity, q, tu);
+    Object.assign(e, { quantity: q, updated_at: tu, synced: false });
     await DB.put('entries', e); toast('Popravljeno', 'ok');
   } else if (r.value === 'del') {
     const c = await modal({ title: 'Izbrišem vnos?', body: `<p>${esc(e.code)} – ${fmt(e.quantity)} ${esc(e.unit || '')}</p>`,
       buttons: [{ label: 'Izbriši', value: true, cls: 'danger' }, { label: 'Prekliči', value: null }] });
     if (!c.value) return;
-    Object.assign(e, { deleted: true, updated_at: nowIso(), synced: false }); await DB.put('entries', e); toast('Vnos izbrisan');
+    const tu = nowIso(); addAct(e, 'izbris', null, e.quantity, null, tu);
+    Object.assign(e, { deleted: true, updated_at: tu, synced: false }); await DB.put('entries', e); toast('Vnos izbrisan');
   } else return;
   OV.loaded = false; renderList(); updateBadge(); sync();
 });
@@ -2004,7 +2115,11 @@ async function _sync(manual) {
       await rpc('sync_entries', { p_pin: S.pin, p_entries: chunk.map(({ synced, ...rest }) => rest) });
       for (const sent of chunk) {
         const now = await DB.get('entries', sent.id);
-        if (now && now.updated_at === sent.updated_at) { now.synced = true; await DB.put('entries', now); }
+        if (!now) continue;
+        const sentActs = new Set((sent.acts || []).map(a => a.id));            // poslana dejanja so zapisana v zgodovini
+        if (sentActs.size) now.acts = (now.acts || []).filter(a => !sentActs.has(a.id));
+        if (now.updated_at === sent.updated_at) now.synced = true;
+        if (sentActs.size || now.synced) await DB.put('entries', now);
       }
     }
     const outbox = await DB.all('outbox_art');

@@ -82,6 +82,15 @@ Najprej v Supabase enkrat zaženite `supabase/posodobitev-7.sql` (ne spreminja P
 - **Ni podvajanja**: v naslednji izvoz pridejo samo novi vnosi in **popravki**. Popravek je artikel, ki se je po izvozu spremenil (ponovno štetje ali dodatni vnos). Označen je z rdečim **!** in v Excelu s stolpcema *Popravek* (prejšnja količina in izvoz) in *Razlika do prej*. **Pri popravku v ERP vpišite novo količino, ne prištevajte.**
 - **Ponovno**: artikli, ki čakajo, da jih popisovalec znova prešteje (*Prekliči zahtevo*, če ste se premislili).
 - Zaključevati lahko samo vpisovalec.
+- **🕘 Zgodovina** (pri vsakem artiklu, tudi v izvozih): kdo je kdaj vpisal ali spremenil količino in **kako**:
+  - *Nov vnos: 10*
+  - *➕ Prištel 5 (10 → 15)*
+  - *🔁 Na novo preštel: 15 (prej 12)* – popisovalec je izbral Zamenjaj
+  - *✏️ Popravil v Moj seznam: 15 → 14*
+  - *Vnos izbrisan*, izvozi z izvoženo količino, zahteve za ponovni pregled, ponovni začetek inventure.
+  Pri vsakem vnosu je še *Skupaj po tem* – skupna količina artikla po tej spremembi. Najnovejše je zgoraj. Zabeležijo se tudi spremembe, narejene brez interneta (naložijo se ob naslednji povezavi).
+  **Pregled → 🕘 Zgodovina sprememb (Excel)** izvozi zgodovino vseh artiklov.
+  Potrebuje enkratni zagon `supabase/posodobitev-10.sql` (vsebuje tudi posodobitev 9). Za nazaj (pred tem) je znano le: prvi vnos, zadnja količina, brisanja, izvozi in odprte zahteve. **Ali je bilo prišteto ali zamenjano, za nazaj ni znano** – beleži se od zagona posodobitve 10 in nove verzije aplikacije naprej. Telefon s staro verzijo zapiše le *Sprememba: 10 → 15*.
 - **Drugi**: artikli, ki jih **ni na popisnem listu iz ERP** (popisovalci so jih dodali kot nove ali brez šifre). **Ne gredo v izvoze za ERP** in ne v inventuro. Gumb **⬇ Excel za tržnico** izvozi seznam (oznaka, proizvajalec, opis, količina) – za prodajo nekurantne zaloge.
 
 ## Za vodjo popisa
